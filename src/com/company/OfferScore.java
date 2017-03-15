@@ -44,8 +44,14 @@ public class OfferScore{
      * @param bidders 投标人报价数据，Key=投标人编码，value=投保人报价
      * @return 升序排序的投标人报价数组
      */
-    private List<Integer> getOriginalSortedOffer(Map<String,Integer> bidders){
-        return null ;
+    private List<Double> getOriginalSortedOffer(Map<String,Double> bidders){
+        ArrayList<Double> list = new ArrayList<Double>(bidders.size());
+        for (Double offer : bidders.values()
+                ) {
+            list.add(offer);
+            Collections.sort(list);
+        }
+        return list;
     }
     /**
      * 计算基准价
@@ -53,16 +59,19 @@ public class OfferScore{
      */
     private Double computeBasePrice(List<Double> offerList,String zbfFullPath){
         String formula = getBasePriceFormula(zbfFullPath);
-        if(formula == "ZuiDiJia"){
-            return offerList.get(0);
-        }
-        else if(formula == "SuoYouPingJunZhi"){
-            return getSummaryForList(offerList)/offerList.size();
-        }
-        else{
-            //todo:
-        }
+        //替换最低价
+        formula  = formula.replace("ZuiDiJia",offerList.get(0).toString());
+        //替换所有报价平均值
+        Double everageOffer = getSummaryForList(offerList)/offerList.size();
+        formula = formula.replace("SuoYouPingJunZhi",everageOffer.toString());
+        //替换部分报价的平均值
     }
+
+    /***
+     * 计算一个Double类型数组所有元素和和
+     * @param list Double类型的数组
+     * @return 所有数组元素的和
+     */
     private Double getSummaryForList(List<Double> list){
         Double result=0.0;
         for (Double item :list

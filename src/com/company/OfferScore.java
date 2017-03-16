@@ -1,6 +1,11 @@
 package com.company;
 import java.util.*;
 import java.sql.*;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+import javax.script.ScriptEngineManager;
+import javax.script.ScriptEngine;
+import javax.script.ScriptException;
 
 /**
  * 报价得分计算类
@@ -9,16 +14,16 @@ public class OfferScore{
     /*
     存储基准价
      */
-    private Float basePrice;
+    private Double basePrice;
     /*
     存储每个投标人的报价得分
      */
-    private Map<String,Integer> bidderOfferScore;
+    private Map<String,Double> bidderOfferScore;
     /**
      * 获取基准价
      * @return 当前标段的基准价
      */
-    public Float getBasePrice(){
+    public Double getBasePrice(){
         return basePrice ;
     }
 
@@ -26,7 +31,7 @@ public class OfferScore{
      * 获取投标人报价得分
      * @return 投标人列表，Key=投标人编码，value=投保人报价得分
      */
-    public Map<String,Integer> getBidderOfferScore(){
+    public Map<String,Double> getBidderOfferScore(){
         return  null;
     }
 
@@ -35,8 +40,8 @@ public class OfferScore{
      * @param bidders 投标人列表，Key=投标人编码，value=投保人报价
      * @param ZbfFullPath 招标文件全路径（zbf文件的绝对路径）
      */
-    public OfferScore(Map<String,Integer> bidders,String ZbfFullPath){
-
+    public OfferScore(Map<String,Double> bidders,String ZbfFullPath) throws ScriptException {
+        basePrice = computeBasePrice(getOriginalSortedOffer(bidders),ZbfFullPath);
     }
 
     /**
@@ -53,18 +58,52 @@ public class OfferScore{
         }
         return list;
     }
-    /**
+
+    /***
      * 计算基准价
-     * @return
+     * @param offerList 升序排列的投标人报价数组
+     * @param zbfFullPath 招标文件全路径
+     * @return 基准价
      */
-    private Double computeBasePrice(List<Double> offerList,String zbfFullPath){
+    private Double computeBasePrice(List<Double> offerList,String zbfFullPath) throws ScriptException {
+
         String formula = getBasePriceFormula(zbfFullPath);
-        //替换最低价
-        formula  = formula.replace("ZuiDiJia",offerList.get(0).toString());
-        //替换所有报价平均值
-        Double everageOffer = getSummaryForList(offerList)/offerList.size();
-        formula = formula.replace("SuoYouPingJunZhi",everageOffer.toString());
-        //替换部分报价的平均值
+
+        if(formula.contains("ZuiDiJia")) {
+            //替换最低价
+            formula = formula.replace("ZuiDiJia", offerList.get(0).toString());
+        }
+        if(formula.contains("SuoYouZongHe")) {
+            //替换最低价
+            formula = formula.replace("SuoYouZongHe", String.valueOf(getSummaryForList(offerList)));
+        }
+        if(formula.contains("SuoYouPingJunZhi")) {
+            //替换所有报价平均值
+            Double averageOffer = getSummaryForList(offerList) / offerList.size();
+            formula = formula.replace("SuoYouPingJunZhi",averageOffer.toString());
+        }
+        if(formula.contains("YouXiaoBaoJiaShuLiang")) {
+            //有效报价的家数
+            formula = formula.replace("YouXiaoBaoJiaShuLiang",String.valueOf(offerList.size()));
+        }
+        if(formula.contains("MaxSummary")){
+            //替换去除N个最大值
+            //提取出去除最大值的数量(个数)
+            Integer maxNumber = Integer.parseInt( getValueByRegex(formula,"MaxSummary\\((?<max>\\d+)\\)","max"));
+            //计算要去除的最大值的合
+            Double maxNumberSummary = getSummaryForList(offerList.subList(offerList.size()-maxNumber,offerList.size()));
+            formula = formula.replaceAll("MaxSummary\\(\\d+\\)", String.valueOf(maxNumberSummary));
+        }
+        if(formula.contains("MinSummary")){
+            //替换去除N个最小值
+            //提取出去除最小值的数量(个数)
+            Integer minNumber = Integer.parseInt( getValueByRegex(formula,"MinSummary\\((?<min>\\d+)\\)","min"));
+            //计算要去除的最小值的合
+            Double minNumberSummary = getSummaryForList(offerList.subList(0,minNumber));
+            formula = formula.replaceAll("MinSummary\\(\\d+\\)", String.valueOf(minNumberSummary));
+        }
+
+        return evalExpression(formula);
     }
 
     /***
@@ -98,6 +137,26 @@ public class OfferScore{
     private String getOfferScoreFormula(String zbfFullPath){
         return getSingleValueFromSqlite(zbfFullPath,"select Formula from OfferScoreComputeMethod");
     }
+    private Double evalExpression(String expression) throws ScriptException {
+        ScriptEngineManager mgr = new ScriptEngineManager();
+        ScriptEngine engine = mgr.getEngineByName("JavaScript");
+        return Double.parseDouble(engine.eval(expression).toString());
+    }
+    /***
+     * 利用正则表达式从指定的字符串中获取值（利用group）
+     * @param content 指定字符串
+     * @param regexString 正则表达式
+     * @param groupName 正则表达式中的分组名称
+     * @return 分组对应的值
+     */
+    private String getValueByRegex(String content,String regexString,String groupName ){
+        Pattern regex = Pattern.compile(regexString);
+        Matcher regexMatcher = regex.matcher(content);
+        if (regexMatcher.find()) {
+            return regexMatcher.group(groupName);
+        }
+        throw new RuntimeException("在指定的字符串中没有提取到对应的值");
+    }
 
     /**
      * 从SQLite中读取单个数值
@@ -112,10 +171,9 @@ public class OfferScore{
             Statement stat = conn.createStatement();
             ResultSet rs = stat.executeQuery(sql);
             rs.next();
-            String value = rs.getString(0);
+            String value = rs.getString(1);
             rs.close();
             conn.close();
-
             return value;
         }
         catch (Exception ex)  {

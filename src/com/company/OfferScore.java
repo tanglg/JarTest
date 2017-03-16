@@ -40,6 +40,9 @@ public class OfferScore{
      * @param zbfFullPath 招标文件全路径（zbf文件的绝对路径）
      */
     public OfferScore(Map<String,Double> bidders,String zbfFullPath) throws ScriptException {
+        if(bidders == null || bidders.size()==0){
+            throw new RuntimeException("没有发现投标人数据，或投标人数量为0");
+        }
         basePrice = computeBasePrice(getOriginalSortedOffer(bidders),zbfFullPath);
         bidderOfferScore = computeOfferScore(bidders,zbfFullPath);
     }
@@ -84,21 +87,33 @@ public class OfferScore{
             //有效报价的家数
             formula = formula.replace("YouXiaoBaoJiaShuLiang",String.valueOf(offerList.size()));
         }
+        Integer removeBidderCount = 0;//保存需要去除的投标人数量，用于判断是否超出范围
         if(formula.contains("MaxSummary")){
             //替换去除N个最大值
             //提取出去除最大值的数量(个数)
             Integer maxNumber = Integer.parseInt( getValueByRegex(formula,"MaxSummary\\((?<max>\\d+)\\)","max"));
+            if(maxNumber>=offerList.size()) {
+                throw new RuntimeException(String.format("计算基准价时，去除的最大值个数(%d)超过了投标人数量(%d)", maxNumber, offerList.size()));
+            }
             //计算要去除的最大值的合
             Double maxNumberSummary = getSummaryForList(offerList.subList(offerList.size()-maxNumber,offerList.size()));
             formula = formula.replaceAll("MaxSummary\\(\\d+\\)", String.valueOf(maxNumberSummary));
+            removeBidderCount += maxNumber;
         }
         if(formula.contains("MinSummary")){
             //替换去除N个最小值
             //提取出去除最小值的数量(个数)
             Integer minNumber = Integer.parseInt( getValueByRegex(formula,"MinSummary\\((?<min>\\d+)\\)","min"));
+            if(minNumber>=offerList.size()) {
+                throw new RuntimeException(String.format("计算基准价时，去除的最小值个数(%d)超过了投标人数量(%d)", minNumber, offerList.size()));
+            }
             //计算要去除的最小值的合
             Double minNumberSummary = getSummaryForList(offerList.subList(0,minNumber));
             formula = formula.replaceAll("MinSummary\\(\\d+\\)", String.valueOf(minNumberSummary));
+            removeBidderCount+=minNumber;
+        }
+        if(removeBidderCount>=offerList.size()){
+            throw new RuntimeException(String.format("计算基准价时，去除的最大值和最小值个数之和(%d)超过了投标人数量(%d)", removeBidderCount, offerList.size()));
         }
 
         return evalExpression(formula);

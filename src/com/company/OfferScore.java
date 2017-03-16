@@ -1,6 +1,7 @@
 package com.company;
 import java.util.*;
 import java.sql.*;
+import java.io.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import javax.script.ScriptEngineManager;
@@ -40,9 +41,9 @@ public class OfferScore{
      * @param zbfFullPath 招标文件全路径（zbf文件的绝对路径）
      */
     public OfferScore(Map<String,Double> bidders,String zbfFullPath) throws ScriptException {
-        if(bidders == null || bidders.size()==0){
-            throw new RuntimeException("没有发现投标人数据，或投标人数量为0");
-        }
+        if(bidders == null || bidders.size()==0) throw new RuntimeException("没有发现投标人数据，或投标人数量为0");
+        if(!new File(zbfFullPath).exists()) throw new RuntimeException("指定的招标文件不存在");
+
         basePrice = computeBasePrice(getOriginalSortedOffer(bidders),zbfFullPath);
         bidderOfferScore = computeOfferScore(bidders,zbfFullPath);
     }

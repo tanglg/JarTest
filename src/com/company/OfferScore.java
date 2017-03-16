@@ -26,10 +26,9 @@ public class OfferScore{
     public Double getBasePrice(){
         return basePrice ;
     }
-
     /**
      * 获取投标人报价得分
-     * @return 投标人列表，Key=投标人编码，value=投保人报价得分
+     * @return 投标人列表，Key=投标人编码，value=投标人报价得分
      */
     public Map<String,Double> getBidderOfferScore(){
         return  bidderOfferScore;
@@ -44,7 +43,6 @@ public class OfferScore{
         basePrice = computeBasePrice(getOriginalSortedOffer(bidders),zbfFullPath);
         bidderOfferScore = computeOfferScore(bidders,zbfFullPath);
     }
-
     /**
      * 获取经过升序排序的投标人报价数组
      * @param bidders 投标人报价数据，Key=投标人编码，value=投保人报价
@@ -59,7 +57,6 @@ public class OfferScore{
         }
         return list;
     }
-
     /***
      * 计算基准价
      * @param offerList 升序排列的投标人报价数组
@@ -106,30 +103,49 @@ public class OfferScore{
 
         return evalExpression(formula);
     }
+
+    /***
+     * 计算报价得分
+     * @param bidders 投标人及报价列表
+     * @param zbfFullPath 招标文件全路径
+     * @return 投标人及报价得分
+     * @throws ScriptException
+     */
     private Map<String,Double>  computeOfferScore(Map<String,Double> bidders,String zbfFullPath) throws ScriptException {
         String[] parameter = getOfferScoreFormula(zbfFullPath).split("@");//注意返回值格式
         String formula= parameter[0];
         Double minScore = Double.parseDouble( parameter[1]);
         Double maxScore = Double.parseDouble( parameter[2]);
-
+        //-99.99指不设上限或下限
+        if(maxScore == -99.99){maxScore = Double.MAX_VALUE;}
+        if(minScore == -99.99){minScore = Double.MIN_VALUE;}
 
         Map<String,Double> scoreMap = new HashMap<>();
 
         for (String bidderID:bidders.keySet()
              ) {
             scoreMap.put(bidderID,computeBidderScore(formula,bidders.get(bidderID),maxScore,minScore));
+
         }
 
         return scoreMap;
     }
+
+    /***
+     * 计算单个投标人报价得分
+     * @param formula 报价得分计算公式
+     * @param offer 投标人报价
+     * @param maxScore 报价得分上限
+     * @param minScore 报价得分下限
+     * @return 报价得分
+     * @throws ScriptException
+     */
     private Double computeBidderScore(String formula, Double offer,Double maxScore,Double minScore) throws ScriptException {
         formula = formula.replace("BaoJia",offer.toString()) ;
         formula = formula.replace("JiZhunJia",basePrice.toString()) ;
         //计算实际得分
         Double actualScore = evalExpression(formula);
         //判断是否超上、下限
-        if(maxScore == -99.99){maxScore = Double.MAX_VALUE;}
-        if(minScore == -99.99){minScore = Double.MIN_VALUE;}
         if(actualScore>maxScore) {
             return maxScore;
         }
@@ -153,7 +169,6 @@ public class OfferScore{
         }
         return result;
     }
-
     /**
      * 获取基准价计算公式
      * @param zbfFullPath 招标文件全路径（zbf文件的绝对路径）
@@ -162,7 +177,6 @@ public class OfferScore{
     private String getBasePriceFormula(String zbfFullPath){
         return getSingleValueFromSqlite(zbfFullPath,"select Formula from BasePriceComputeMethod");
     }
-
     /**
      * 获取报价得分的计算公式
      * @param zbfFullPath 招标文件全路径（zbf文件的绝对路径）
@@ -171,7 +185,6 @@ public class OfferScore{
     private String getOfferScoreFormula(String zbfFullPath){
         return getSingleValueFromSqlite(zbfFullPath,"select Formula ||'@'||LowestScoreWhenIncrease||'@'||LowestScoreWhenReduce AS Parameter from OfferScoreComputeMethod");
     }
-
     /***
      * 计算数学表达式的值
      * @param expression 数学表达式
@@ -198,7 +211,6 @@ public class OfferScore{
         }
         throw new RuntimeException("在指定的字符串中没有提取到对应的值");
     }
-
     /**
      * 从SQLite中读取单个数值
      * @param dbFullPath SQLite全路径

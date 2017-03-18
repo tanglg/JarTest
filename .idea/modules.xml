@@ -2,7 +2,7 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
-      <module fileurl="file://$PROJECT_DIR$/JarTest.iml" filepath="$PROJECT_DIR$/JarTest.iml" />
+      <module fileurl="file://$PROJECT_DIR$/OfferScore.iml" filepath="$PROJECT_DIR$/OfferScore.iml" />
     </modules>
   </component>
 </project>

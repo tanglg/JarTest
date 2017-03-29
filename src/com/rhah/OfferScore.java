@@ -4,6 +4,8 @@ import javax.script.ScriptEngine;
 import javax.script.ScriptEngineManager;
 import javax.script.ScriptException;
 import java.io.File;
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.ResultSet;
@@ -19,23 +21,23 @@ public class OfferScore{
     /*
     存储基准价
      */
-    private Double basePrice;
+    private BigDecimal basePrice;
     /*
     存储每个投标人的报价得分
      */
-    private Map<String,Double> bidderOfferScore;
+    private Map<String,BigDecimal> bidderOfferScore;
     /**
      * 获取基准价
      * @return 当前标段的基准价
      */
-    public Double getBasePrice(){
+    public BigDecimal getBasePrice(){
         return basePrice ;
     }
     /**
      * 获取投标人报价得分
      * @return 投标人列表，Key=投标人编码，value=投标人报价得分
      */
-    public Map<String,Double> getBidderOfferScore(){
+    public Map<String,BigDecimal> getBidderOfferScore(){
         return  bidderOfferScore;
     }
 
@@ -44,7 +46,7 @@ public class OfferScore{
      * @param bidders 投标人列表，Key=投标人编码，value=投保人报价
      * @param zbfFullPath 招标文件全路径（zbf文件的绝对路径）
      */
-    public OfferScore(Map<String,Double> bidders,String zbfFullPath) throws ScriptException {
+    public OfferScore(Map<String,BigDecimal> bidders,String zbfFullPath) throws ScriptException {
         if(bidders == null || bidders.size()==0) throw new RuntimeException("没有发现投标人数据，或投标人数量为0");
         if(!new File(zbfFullPath).exists()) throw new RuntimeException("指定的招标文件不存在");
 
@@ -56,9 +58,9 @@ public class OfferScore{
      * @param bidders 投标人报价数据，Key=投标人编码，value=投保人报价
      * @return 升序排序的投标人报价数组
      */
-    private List<Double> getOriginalSortedOffer(Map<String,Double> bidders){
-        ArrayList<Double> list = new ArrayList<>(bidders.size());
-        for (Double offer : bidders.values()
+    private List<BigDecimal> getOriginalSortedOffer(Map<String,BigDecimal> bidders){
+        ArrayList<BigDecimal> list = new ArrayList<>(bidders.size());
+        for (BigDecimal offer : bidders.values()
                 ) {
             list.add(offer);
             Collections.sort(list);
@@ -71,7 +73,7 @@ public class OfferScore{
      * @param zbfFullPath 招标文件全路径
      * @return 基准价
      */
-    private Double computeBasePrice(List<Double> offerList,String zbfFullPath) throws ScriptException {
+    private BigDecimal computeBasePrice(List<BigDecimal> offerList,String zbfFullPath) throws ScriptException {
 
         String formula = getBasePriceFormula(zbfFullPath);
 
@@ -85,7 +87,7 @@ public class OfferScore{
         }
         if(formula.contains("SuoYouPingJunZhi")) {
             //替换所有报价平均值
-            Double averageOffer = getSummaryForList(offerList) / offerList.size();
+            BigDecimal averageOffer = getSummaryForList(offerList) .divide(new BigDecimal(String.valueOf(offerList.size())),2) ;
             formula = formula.replace("SuoYouPingJunZhi",averageOffer.toString());
         }
         if(formula.contains("YouXiaoBaoJiaShuLiang")) {
@@ -101,7 +103,7 @@ public class OfferScore{
                 throw new RuntimeException(String.format("计算基准价时，去除的最大值个数(%d)超过了投标人数量(%d)", maxNumber, offerList.size()));
             }
             //计算要去除的最大值的合
-            Double maxNumberSummary = getSummaryForList(offerList.subList(offerList.size()-maxNumber,offerList.size()));
+            BigDecimal maxNumberSummary = getSummaryForList(offerList.subList(offerList.size()-maxNumber,offerList.size()));
             formula = formula.replaceAll("MaxSummary\\(\\d+\\)", String.valueOf(maxNumberSummary));
             removeBidderCount += maxNumber;
         }
@@ -113,7 +115,7 @@ public class OfferScore{
                 throw new RuntimeException(String.format("计算基准价时，去除的最小值个数(%d)超过了投标人数量(%d)", minNumber, offerList.size()));
             }
             //计算要去除的最小值的合
-            Double minNumberSummary = getSummaryForList(offerList.subList(0,minNumber));
+            BigDecimal minNumberSummary = getSummaryForList(offerList.subList(0,minNumber));
             formula = formula.replaceAll("MinSummary\\(\\d+\\)", String.valueOf(minNumberSummary));
             removeBidderCount+=minNumber;
         }
@@ -121,7 +123,7 @@ public class OfferScore{
             throw new RuntimeException(String.format("计算基准价时，去除的最大值和最小值个数之和(%d)超过了投标人数量(%d)", removeBidderCount, offerList.size()));
         }
 
-        return evalExpression(formula);
+        return evalExpression(formula).setScale(2, RoundingMode.HALF_UP);
     }
 
     /***
@@ -131,20 +133,20 @@ public class OfferScore{
      * @return 投标人及报价得分
      * @throws ScriptException
      */
-    private Map<String,Double>  computeOfferScore(Map<String,Double> bidders,String zbfFullPath) throws ScriptException {
+    private Map<String,BigDecimal>  computeOfferScore(Map<String,BigDecimal> bidders,String zbfFullPath) throws ScriptException {
         String[] parameter = getOfferScoreFormula(zbfFullPath).split("@");//注意返回值格式
         String formula= parameter[0];
-        Double minScore = Double.parseDouble( parameter[1]);
-        Double maxScore = Double.parseDouble( parameter[2]);
+        BigDecimal minScore = new BigDecimal( parameter[1]);
+        BigDecimal maxScore = new BigDecimal( parameter[2]);
         //-99.99指不设上限或下限
-        if(maxScore == -99.99){maxScore = Double.MAX_VALUE;}
-        if(minScore == -99.99){minScore = Double.MIN_VALUE;}
+        if(maxScore .compareTo(new BigDecimal(-99.99)) == 0){maxScore = BigDecimal.valueOf(Double.MAX_VALUE);}
+        if(minScore .compareTo(new BigDecimal(-99.99)) == 0){minScore = BigDecimal.valueOf(Double.MIN_VALUE);}
 
-        Map<String,Double> scoreMap = new HashMap<>();
+        Map<String,BigDecimal> scoreMap = new HashMap<>();
 
         for (String bidderID:bidders.keySet()
              ) {
-            scoreMap.put(bidderID,computeBidderScore(formula,bidders.get(bidderID),maxScore,minScore));
+            scoreMap.put(bidderID,computeBidderScore(formula,bidders.get(bidderID),maxScore,minScore).setScale(3, RoundingMode.HALF_UP));
 
         }
 
@@ -160,16 +162,16 @@ public class OfferScore{
      * @return 报价得分
      * @throws ScriptException
      */
-    private Double computeBidderScore(String formula, Double offer,Double maxScore,Double minScore) throws ScriptException {
+    private BigDecimal computeBidderScore(String formula, BigDecimal offer,BigDecimal maxScore,BigDecimal minScore) throws ScriptException {
         formula = formula.replace("BaoJia",offer.toString()) ;
         formula = formula.replace("JiZhunJia",basePrice.toString()) ;
         //计算实际得分
-        Double actualScore = evalExpression(formula);
+        BigDecimal actualScore = evalExpression(formula);
         //判断是否超上、下限
-        if(actualScore>maxScore) {
+        if(actualScore.compareTo(maxScore)==1) {
             return maxScore;
         }
-        else if(actualScore<minScore) {
+        else if(actualScore.compareTo(minScore)==-1) {
             return minScore;
         }
         else {
@@ -177,15 +179,15 @@ public class OfferScore{
         }
     }
     /***
-     * 计算一个Double类型数组所有元素和和
-     * @param list Double类型的数组
+     * 计算一个BigDecimal类型数组所有元素和和
+     * @param list BigDecimal类型的数组
      * @return 所有数组元素的和
      */
-    private Double getSummaryForList(List<Double> list){
-        Double result=0.0;
-        for (Double item :list
+    private BigDecimal getSummaryForList(List<BigDecimal> list){
+        BigDecimal result= new BigDecimal("0.000");
+        for (BigDecimal item :list
                 ) {
-            result = result+item ;
+            result = result.add(item) ;
         }
         return result;
     }
@@ -211,10 +213,10 @@ public class OfferScore{
      * @return 计算后的数值
      * @throws ScriptException
      */
-    private Double evalExpression(String expression) throws ScriptException {
+    private BigDecimal evalExpression(String expression ) throws ScriptException {
         ScriptEngineManager mgr = new ScriptEngineManager();
         ScriptEngine engine = mgr.getEngineByName("JavaScript");
-        return Double.parseDouble(engine.eval(expression).toString());
+        return new BigDecimal(engine.eval(expression).toString());
     }
     /***
      * 利用正则表达式从指定的字符串中获取值（利用group）

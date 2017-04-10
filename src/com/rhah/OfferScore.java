@@ -19,6 +19,10 @@ import java.util.regex.Pattern;
  */
 public class OfferScore{
     /*
+    存储基准价下浮系数
+     */
+    private BigDecimal floatCoefficient;
+    /*
     存储基准价
      */
     private BigDecimal basePrice;
@@ -45,11 +49,12 @@ public class OfferScore{
      * 初始化一个报价得分计算对象
      * @param bidders 投标人列表，Key=投标人编码，value=投保人报价
      * @param zbfFullPath 招标文件全路径（zbf文件的绝对路径）
+     * @param coefficient 基准价系数（例：下浮5%，则应传入0.95）
      */
-    public OfferScore(Map<String,BigDecimal> bidders,String zbfFullPath) throws ScriptException {
+    public OfferScore(Map<String,BigDecimal> bidders,String zbfFullPath,BigDecimal coefficient) throws ScriptException {
         if(bidders == null || bidders.size()==0) throw new RuntimeException("没有发现投标人数据，或投标人数量为0");
         if(!new File(zbfFullPath).exists()) throw new RuntimeException("指定的招标文件不存在");
-
+        floatCoefficient = coefficient;
         basePrice = computeBasePrice(getOriginalSortedOffer(bidders),zbfFullPath);
         bidderOfferScore = computeOfferScore(bidders,zbfFullPath);
     }
@@ -122,8 +127,10 @@ public class OfferScore{
         if(removeBidderCount>=offerList.size()){
             throw new RuntimeException(String.format("计算基准价时，去除的最大值和最小值个数之和(%d)超过了投标人数量(%d)", removeBidderCount, offerList.size()));
         }
-
-        return evalExpression(formula).setScale(2, RoundingMode.HALF_UP);
+        //计算出实际的基准价
+        BigDecimal actualBasePrice = evalExpression(formula);
+        //返回经过下浮系数计算后的基准价
+        return actualBasePrice.multiply(floatCoefficient).setScale(2, RoundingMode.HALF_UP);
     }
 
     /***

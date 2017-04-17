@@ -19,6 +19,14 @@ import java.util.regex.Pattern;
  */
 public class OfferScore{
     /*
+    计算基准价时要去除的最高报价个数
+     */
+    private Integer delMaxCount;
+    /*
+    计算基准价时要去除的最低报价个数
+     */
+    private Integer delMinCount;
+    /*
     存储基准价下浮系数
      */
     private BigDecimal floatCoefficient;
@@ -50,11 +58,30 @@ public class OfferScore{
      * @param bidders 投标人列表，Key=投标人编码，value=投保人报价
      * @param zbfFullPath 招标文件全路径（zbf文件的绝对路径）
      * @param coefficient 基准价系数（例：下浮5%，则应传入0.95）
+     * @param removeMaxCount 计算基准价时要去掉的最高报价个数
+     * @param removeMinCount 计算基准价时要去掉的最低报价个数
+     */
+    public OfferScore(Map<String,BigDecimal> bidders,String zbfFullPath,BigDecimal coefficient,Integer removeMaxCount,Integer removeMinCount) throws ScriptException {
+        if(bidders == null || bidders.size()==0) throw new RuntimeException("没有发现投标人数据，或投标人数量为0");
+        if(!new File(zbfFullPath).exists()) throw new RuntimeException("指定的招标文件不存在");
+        floatCoefficient = coefficient;
+        delMaxCount = removeMaxCount;
+        delMinCount = removeMinCount;
+        basePrice = computeBasePrice(getOriginalSortedOffer(bidders),zbfFullPath);
+        bidderOfferScore = computeOfferScore(bidders,zbfFullPath);
+    }
+    /**
+     * 初始化一个报价得分计算对象(计算基准价时不需要去除最高报价和最低报价)
+     * @param bidders 投标人列表，Key=投标人编码，value=投保人报价
+     * @param zbfFullPath 招标文件全路径（zbf文件的绝对路径）
+     * @param coefficient 基准价系数（例：下浮5%，则应传入0.95）
      */
     public OfferScore(Map<String,BigDecimal> bidders,String zbfFullPath,BigDecimal coefficient) throws ScriptException {
         if(bidders == null || bidders.size()==0) throw new RuntimeException("没有发现投标人数据，或投标人数量为0");
         if(!new File(zbfFullPath).exists()) throw new RuntimeException("指定的招标文件不存在");
         floatCoefficient = coefficient;
+        delMaxCount = 0;
+        delMinCount = 0;
         basePrice = computeBasePrice(getOriginalSortedOffer(bidders),zbfFullPath);
         bidderOfferScore = computeOfferScore(bidders,zbfFullPath);
     }
@@ -103,36 +130,67 @@ public class OfferScore{
         if(formula.contains("MaxSummary")){
             //替换去除N个最大值
             //提取出去除最大值的数量(个数)
-            Integer maxNumber = Integer.parseInt( getValueByRegex(formula,"MaxSummary\\((?<max>\\d+)\\)","max"));
-            if(maxNumber>=offerList.size()) {
-                throw new RuntimeException(String.format("计算基准价时，去除的最大值个数(%d)超过了投标人数量(%d)", maxNumber, offerList.size()));
+            //去除数量由招标文件公式提取到开标时决定
+            //Integer maxNumber = Integer.parseInt( getValueByRegex(formula,"MaxSummary\\((?<max>\\d+)\\)","max"));
+            if(delMaxCount>=offerList.size()) {
+                throw new RuntimeException(String.format("计算基准价时，去除的最大值个数(%d)超过了投标人数量(%d)", delMaxCount, offerList.size()));
             }
             //计算要去除的最大值的合
-            BigDecimal maxNumberSummary = getSummaryForList(offerList.subList(offerList.size()-maxNumber,offerList.size()));
+            BigDecimal maxNumberSummary = getSummaryForList(offerList.subList(offerList.size()-delMaxCount,offerList.size()));
             formula = formula.replaceAll("MaxSummary\\(\\d+\\)", String.valueOf(maxNumberSummary));
-            removeBidderCount += maxNumber;
+            removeBidderCount += delMaxCount;
         }
         if(formula.contains("MinSummary")){
             //替换去除N个最小值
             //提取出去除最小值的数量(个数)
-            Integer minNumber = Integer.parseInt( getValueByRegex(formula,"MinSummary\\((?<min>\\d+)\\)","min"));
-            if(minNumber>=offerList.size()) {
-                throw new RuntimeException(String.format("计算基准价时，去除的最小值个数(%d)超过了投标人数量(%d)", minNumber, offerList.size()));
+            //Integer minNumber = Integer.parseInt( getValueByRegex(formula,"MinSummary\\((?<min>\\d+)\\)","min"));
+            if(delMinCount>=offerList.size()) {
+                throw new RuntimeException(String.format("计算基准价时，去除的最小值个数(%d)超过了投标人数量(%d)", delMinCount, offerList.size()));
             }
             //计算要去除的最小值的合
-            BigDecimal minNumberSummary = getSummaryForList(offerList.subList(0,minNumber));
+            BigDecimal minNumberSummary = getSummaryForList(offerList.subList(0,delMinCount));
             formula = formula.replaceAll("MinSummary\\(\\d+\\)", String.valueOf(minNumberSummary));
-            removeBidderCount+=minNumber;
+            removeBidderCount+=delMinCount;
         }
         if(removeBidderCount>=offerList.size()){
             throw new RuntimeException(String.format("计算基准价时，去除的最大值和最小值个数之和(%d)超过了投标人数量(%d)", removeBidderCount, offerList.size()));
         }
+        formula = ReplaceRemoveMaxCount(formula);
+        formula = ReplaceRemoveMinCount(formula);
+        System.out.printf(formula);
         //计算出实际的基准价
         BigDecimal actualBasePrice = evalExpression(formula);
         //返回经过下浮系数计算后的基准价
         return actualBasePrice.multiply(floatCoefficient).setScale(2, RoundingMode.HALF_UP);
     }
 
+    /***
+     * 替换基准价公式中的移除最高价数量
+     * @param formula 基准价公式
+     * @return 替换后的公式
+     */
+    private String ReplaceRemoveMaxCount(String formula)
+    {
+        if(formula.contains("MaxCount")) {
+            return formula.replaceAll("MaxCount\\(\\d+\\)", String.valueOf(delMaxCount));
+        }else{
+            return formula;
+        }
+    }
+
+    /***
+     * 换基准价公式中的移除最低价数量
+     * @param formula 基准价计算公式
+     * @return 替换后的公式
+     */
+    private String ReplaceRemoveMinCount(String formula)
+    {
+        if(formula.contains("MinCount")) {
+            return formula.replaceAll("MinCount\\(\\d+\\)", String.valueOf(delMinCount));
+        }else{
+            return formula;
+        }
+    }
     /***
      * 计算报价得分
      * @param bidders 投标人及报价列表

@@ -1,16 +1,23 @@
 package com.rhah;
 
 import javax.script.ScriptException;
+import java.io.Console;
 import java.math.BigDecimal;
 import java.util.HashMap;
 import java.util.Map;
+
+import static com.rhah.BasePrice.getRemvoeBidderCount;
 
 public class Main {
 
     public static void main(String[] args) {
 
-        testComputeBasePrice();
-
+        //testComputeBasePrice();
+        //TestSQLite testSQLite = new TestSQLite();
+        //testSQLite.getSingleValueFromSqlite();
+        RemoveBidderResult result = BasePrice .getRemvoeBidderCount("H:\\zhaobiao\\示例项目\\双信封招标文件示例\\明珠花苑小学项目工程勘察设计.zbf",3);
+        System.out.printf("去除最高数量=%s%n", result.RemoveHeightCount);
+        System.out.printf("去除最低数量=%s%n", result.RemoveLowCount);
     }
 
     public static void testComputeBasePrice() {

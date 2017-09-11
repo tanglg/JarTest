@@ -6,18 +6,16 @@ import java.math.BigDecimal;
 import java.util.HashMap;
 import java.util.Map;
 
-import static com.rhah.BasePrice.getRemvoeBidderCount;
-
 public class Main {
 
     public static void main(String[] args) {
 
-        //testComputeBasePrice();
+        testComputeBasePrice();
         //TestSQLite testSQLite = new TestSQLite();
         //testSQLite.getSingleValueFromSqlite();
-        RemoveBidderResult result = BasePrice .getRemvoeBidderCount("H:\\zhaobiao\\示例项目\\双信封招标文件示例\\明珠花苑小学项目工程勘察设计.zbf",3);
-        System.out.printf("去除最高数量=%s%n", result.RemoveHeightCount);
-        System.out.printf("去除最低数量=%s%n", result.RemoveLowCount);
+        //RemoveBidderResult result = BasePrice .getRemvoeBidderCount("H:\\zhaobiao\\示例项目\\双信封招标文件示例\\明珠花苑小学项目工程勘察设计.zbf",3);
+        //System.out.printf("去除最高数量=%s%n", result.RemoveHeightCount);
+        //System.out.printf("去除最低数量=%s%n", result.RemoveLowCount);
     }
 
     public static void testComputeBasePrice() {
@@ -32,7 +30,7 @@ public class Main {
         try {
 
              //该测试数据库中，基准价采用的是平均值，报价得分=100，高1%减2分，低1%减1分，最高100分，最低0分
-            OfferScore os = new OfferScore(bidderList, "H:\\zhaobiao\\示例项目\\报价得分测试专用.zbf",BigDecimal.valueOf(0.3));
+            OfferScore os = new OfferScore(bidderList, "H:\\zhaobiao\\示例项目\\双信封招标文件示例\\明珠花苑小学项目工程勘察设计.zbf",BigDecimal.valueOf(1));
             System.out.printf("基准价=%s%n", os.getBasePrice());
 
             Map<String, BigDecimal> scores = os.getBidderOfferScore();

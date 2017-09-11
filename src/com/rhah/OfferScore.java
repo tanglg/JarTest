@@ -53,23 +53,7 @@ public class OfferScore{
         return  bidderOfferScore;
     }
 
-    /**
-     * 初始化一个报价得分计算对象
-     * @param bidders 投标人列表，Key=投标人编码，value=投保人报价
-     * @param zbfFullPath 招标文件全路径（zbf文件的绝对路径）
-     * @param coefficient 基准价系数（例：下浮5%，则应传入0.95）
-     * @param removeMaxCount 计算基准价时要去掉的最高报价个数
-     * @param removeMinCount 计算基准价时要去掉的最低报价个数
-     */
-    public OfferScore(Map<String,BigDecimal> bidders,String zbfFullPath,BigDecimal coefficient,Integer removeMaxCount,Integer removeMinCount) throws ScriptException {
-        if(bidders == null || bidders.size()==0) throw new RuntimeException("没有发现投标人数据，或投标人数量为0");
-        if(!new File(zbfFullPath).exists()) throw new RuntimeException("指定的招标文件不存在");
-        floatCoefficient = coefficient;
-        delMaxCount = removeMaxCount;
-        delMinCount = removeMinCount;
-        basePrice = computeBasePrice(getOriginalSortedOffer(bidders),zbfFullPath);
-        bidderOfferScore = computeOfferScore(bidders,zbfFullPath);
-    }
+
     /**
      * 初始化一个报价得分计算对象(计算基准价时不需要去除最高报价和最低报价)
      * @param bidders 投标人列表，Key=投标人编码，value=投保人报价
@@ -82,7 +66,16 @@ public class OfferScore{
         floatCoefficient = coefficient;
         delMaxCount = 0;
         delMinCount = 0;
-        basePrice = computeBasePrice(getOriginalSortedOffer(bidders),zbfFullPath);
+        String basePriceComputeType = getSingleValueFromSqlite(zbfFullPath,"SELECT ComputeType FROM BasePriceComputeMethod");
+        if(basePriceComputeType.equals("Average")){
+            RemoveBidderResult resule = getRemvoeBidderCount(zbfFullPath,bidders.size());
+            delMaxCount = resule.RemoveHeightCount;
+            delMinCount = resule.RemoveLowCount;
+            basePrice = computeBasePrice(getOriginalSortedOffer(bidders),zbfFullPath);
+        }else{
+            basePrice  = Collections.min(bidders.values());
+            System.out.printf("基准价（最小值）=%s%n",basePrice);
+        }
         bidderOfferScore = computeOfferScore(bidders,zbfFullPath);
     }
     /**
@@ -320,4 +313,90 @@ public class OfferScore{
             throw new RuntimeException(ex.getMessage() ,ex );
         }
     }
+    /**
+     * 从SQLite中读取单个数值
+     * @param dbPath 招标文件SQLite全路径
+     * @return SQL语句执行结果
+     */
+    private List<RemoveBidderParam> getRemoveBidderParam(String dbPath)  {
+        try {
+            Class.forName("org.sqlite.JDBC");
+            Connection conn = DriverManager.getConnection(String.format("jdbc:sqlite:%s", dbPath));
+            Statement stat = conn.createStatement();
+            ResultSet rs = stat.executeQuery("SELECT ThresholdValue,HeightCount,LowCount from AverageBasePriceMethod ORDER BY SortOrder");
+            List<RemoveBidderParam> params  = new ArrayList<RemoveBidderParam>();
+            while( rs.next()) {
+                RemoveBidderParam param = new RemoveBidderParam();
+                param.ThresholdValue = rs.getInt("ThresholdValue");
+                param.HeightCount = rs.getInt("HeightCount");
+                param.LowCount = rs.getInt("LowCount");
+                params.add(param);
+            }
+            rs.close();
+            conn.close();
+            return params;
+        }
+        catch (Exception ex)  {
+            throw new RuntimeException(ex.getMessage() ,ex );
+        }
+    }
+    /***
+     * 获取招标文件中去除最高报价和最低报价数量
+     * @param dbpath 招标文件全路径（默认招标文件中只有一个报价得分节点，且如果未设置去除规则将返回去除0个最高和最低报价）
+     * @param bidderCount 投标人数量
+     * @return 去除最高报价和最低报价数量
+     */
+    private RemoveBidderResult getRemvoeBidderCount(String dbpath,int bidderCount)
+    {
+        List<RemoveBidderParam> params = getRemoveBidderParam(dbpath);
+        int positon = -1;
+        for(int i=0;i<params.size();i++)
+        {
+            if(bidderCount >= params.get(i).ThresholdValue &&  params.get(i).ThresholdValue>0)
+            {
+                positon = i;
+            }
+        }
+        RemoveBidderResult param = new RemoveBidderResult();
+        if(positon==-1)
+        {
+            param.RemoveHeightCount=0;
+            param.RemoveLowCount =0;
+        }
+        else
+        {
+            param.RemoveHeightCount=params.get(positon).HeightCount;
+            param.RemoveLowCount =params.get(positon).LowCount;
+        }
+        return param;
+    }
+
+}
+class RemoveBidderResult{
+    /***
+     * 需要移除的最高报价数量
+     */
+    public int RemoveHeightCount;
+    /***
+     * 需要移除的最低报价数量
+     */
+    public int RemoveLowCount;
+}
+
+/***
+ * 规则类，每一个对象表示一个阈值和阈值对应的去掉最高报价和最低报价个数
+ */
+class  RemoveBidderParam{
+    /***
+     * 阈值
+     */
+    public int ThresholdValue;
+    /***
+     * 投标人数量达到阈值时去掉的最高报价数量
+     */
+    public int HeightCount;
+    /***
+     * 投标人数量达到阈值时去掉的最低报价数量
+     */
+    public int LowCount;
 }

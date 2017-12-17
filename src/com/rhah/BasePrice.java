@@ -46,6 +46,10 @@ public class BasePrice {
             basePrice  = computeTopNBasePrice(bidders,zbfFullPath);
             System.out.printf("基准价（TopN）=%s%n",basePrice);
         }
+        else if (basePriceComputeType.equals("BaseAsLimitPrice")){
+            basePrice = computeLimitBasePrice(zbfFullPath,getOriginalSortedOffer(bidders));
+            System.out.printf("基准价（基于投标限制价）=s%n%",basePrice);
+        }
         else{
             throw new RuntimeException("不支持根据 "+basePriceComputeType+" 方式计算基准价");
         }
@@ -63,6 +67,30 @@ public class BasePrice {
         }
         Collections.sort(list);
         return list;
+    }
+    private BigDecimal computeLimitBasePrice(String zbfPath,List<BigDecimal> offerList)
+    {
+        BigDecimal limitPrice = new BigDecimal( OfferScore.getSingleValueFromSqlite(zbfPath,"select Backup1 from Overview"));
+        BigDecimal lowMult = new BigDecimal( OfferScore.getSingleValueFromSqlite(zbfPath,"select TopMult from BasePriceAsTopLimit"));
+        BigDecimal topMult = new BigDecimal( OfferScore.getSingleValueFromSqlite(zbfPath,"select LowMult from BasePriceAsTopLimit"));
+        BigDecimal lowValue = limitPrice .multiply( lowMult);
+        System.out.printf("最低报价限制=%s%n", lowValue);
+        BigDecimal topValue = limitPrice .multiply( topMult);
+        System.out.printf("最高报价限制=%s%n", topValue);
+        BigDecimal sum = new BigDecimal(0);//记录符合范围的报价的综合
+        int count = 0;//记录有几个报价符合范围
+
+        for(Integer i=0;i<offerList.size();i++){
+            if(offerList.get(i).compareTo(lowValue)==1 && offerList.get(i).compareTo(topValue)==-1) {
+                sum.add(offerList.get(i));
+                count = count + 1;
+                System.out.printf("符合条件的报价=%s%n", offerList.get(i));
+            }
+        }
+        if(count ==0){
+            throw new RuntimeException("根据投标限制价计算基准价时没有找到符合条件的投标报价");
+        }
+        return sum.divide(new BigDecimal(count));
     }
     /***
      * 计算按平均值方式计算基准价

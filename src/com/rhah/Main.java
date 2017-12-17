@@ -2,13 +2,16 @@ package com.rhah;
 
 import javax.script.ScriptException;
 import java.io.Console;
+import java.lang.reflect.GenericArrayType;
 import java.math.BigDecimal;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.TreeMap;
 
 public class Main {
 
-    public static void main(String[] args) {
+    public static void main(String[] args) throws ScriptException {
 
         testComputeBasePrice();
         //TestSQLite testSQLite = new TestSQLite();
@@ -17,31 +20,40 @@ public class Main {
         //System.out.printf("去除最高数量=%s%n", result.RemoveHeightCount);
         //System.out.printf("去除最低数量=%s%n", result.RemoveLowCount);
     }
+    private static   LinkedHashMap generateDemoBidderData(){
+        LinkedHashMap<String, BigDecimal> bidderList = new LinkedHashMap<>();
+        bidderList.put("李32", BigDecimal.valueOf(80.0));
+        bidderList.put("张31", BigDecimal.valueOf(81.0));
+        bidderList.put("丁36", BigDecimal.valueOf(82.0));
+        bidderList.put("王33", BigDecimal.valueOf(83.0));
+        bidderList.put("赵34", BigDecimal.valueOf(100.0));
+        bidderList.put("孙35", BigDecimal.valueOf(101.0));
 
-    public static void testComputeBasePrice() {
-
-        Map<String, BigDecimal> bidderList = new HashMap<>();
-        bidderList.put("张30", BigDecimal.valueOf( 30.0));
-        bidderList.put("李150", BigDecimal.valueOf(150.0));
-        bidderList.put("王20", BigDecimal.valueOf(20.0));
-        bidderList.put("赵50", BigDecimal.valueOf(50.0));
-        bidderList.put("孙5", BigDecimal.valueOf(5.0));
-        bidderList.put("苏60", BigDecimal.valueOf(60.0));
-        try {
-
-             //该测试数据库中，基准价采用的是平均值，报价得分=100，高1%减2分，低1%减1分，最高100分，最低0分
-            OfferScore os = new OfferScore(bidderList, "H:\\zhaobiao\\示例项目\\双信封招标文件示例\\明珠花苑小学项目工程勘察设计.zbf",BigDecimal.valueOf(1));
-            System.out.printf("基准价=%s%n", os.getBasePrice());
-
-            Map<String, BigDecimal> scores = os.getBidderOfferScore();
-            for (String bidder : scores.keySet()
-                    ) {
-                System.out.printf("%s=%s%n", bidder, scores.get(bidder));
-            }
-
-        } catch (ScriptException e) {
-            e.printStackTrace();
+        return bidderList;
+    }
+    public static void testComputeBasePrice() throws ScriptException {
+        BasePrice priceObject= new BasePrice(generateDemoBidderData(),"H:\\zhaobiao\\示例项目\\双信封招标文件示例\\明珠花苑小学项目工程勘察设计.zbf");
+        BigDecimal basePrice = priceObject.getBasePrice();
+        System.out.printf("最终计算基准价=%s%n",basePrice );
+        OfferScore score = new OfferScore(generateDemoBidderData(),"H:\\zhaobiao\\示例项目\\双信封招标文件示例\\明珠花苑小学项目工程勘察设计.zbf",basePrice);
+        LinkedHashMap offerScore = score.getBidderOfferScore();
+        for (Object bidder : offerScore.keySet()
+                ) {
+            System.out.printf("%s=%s%n", bidder, offerScore.get(bidder));
         }
+    }
+    public static void testComputeOfferScore() {
+        //该测试数据库中，基准价采用的是平均值，报价得分=100，高1%减2分，低1%减1分，最高100分，最低0分
+        /*
+        OfferScore os = new OfferScore(generateDemoBidderData(), "H:\\zhaobiao\\示例项目\\双信封招标文件示例\\明珠花苑小学项目工程勘察设计.zbf",BigDecimal.valueOf(1));
+        System.out.printf("基准价=%s%n", os.getBasePrice());
+
+        Map<String, BigDecimal> scores = os.getBidderOfferScore();
+        for (String bidder : scores.keySet()
+                ) {
+            System.out.printf("%s=%s%n", bidder, scores.get(bidder));
+        }
+        */
     }
 }
 

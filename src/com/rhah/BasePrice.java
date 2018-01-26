@@ -105,8 +105,8 @@ public class BasePrice {
             price = price.add(offerList.get(i));
             System.out.printf("参与平均的值"+(i+1-method.RemoveLowCount)+"=%s%n",offerList.get(i));
         }
-        price = price.divide(BigDecimal.valueOf(offerList.size()-method.RemoveHeightCount-method.RemoveLowCount),3, BigDecimal.ROUND_DOWN);
-        return price.multiply(method.Factor).divide(BigDecimal.valueOf(100),3, BigDecimal.ROUND_DOWN);
+        price = price.divide(BigDecimal.valueOf(offerList.size()-method.RemoveHeightCount-method.RemoveLowCount),2, BigDecimal.ROUND_DOWN);
+        return price.multiply(method.Factor).divide(BigDecimal.valueOf(100),2, BigDecimal.ROUND_DOWN);
     }
     private BigDecimal computeTopNBasePrice(LinkedHashMap<String,BigDecimal> bidders,String dbPath) {
         Integer topN = Integer.valueOf( OfferScore.getSingleValueFromSqlite(dbPath,"SELECT RemoveMaxValueCount FROM BasePriceComputeMethod"));
@@ -123,12 +123,12 @@ public class BasePrice {
                 break;
             }
         }
-        price = price.divide(BigDecimal.valueOf(count),3, BigDecimal.ROUND_DOWN);
+        price = price.divide(BigDecimal.valueOf(count),2, BigDecimal.ROUND_DOWN);
         System.out.printf("未计算浮动比例的基准价=%s%n",price);
         BigDecimal factor = new BigDecimal(OfferScore.getSingleValueFromSqlite(dbPath,"SELECT DownFactor FROM BasePriceComputeMethod"));
         if(factor.compareTo(BigDecimal.valueOf(2000))==1)
         {
-            price = price.multiply((factor.subtract(BigDecimal.valueOf(2000)))).divide(BigDecimal.valueOf(100),3, BigDecimal.ROUND_DOWN);
+            price = price.multiply((factor.subtract(BigDecimal.valueOf(2000)))).divide(BigDecimal.valueOf(100),2, BigDecimal.ROUND_DOWN);
             System.out.printf("基准价计算的浮动比例=%s%n",factor);
         }
         return price;

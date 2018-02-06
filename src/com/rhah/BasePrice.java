@@ -3,6 +3,7 @@ package com.rhah;
 import javax.script.ScriptException;
 import java.io.File;
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.ResultSet;
@@ -23,7 +24,7 @@ public class BasePrice {
     }
     /**
      * 初始化一个基准价计算对象
-     * @param bidders 投标人列表，Key=投标人编码，value=投保人报价，该列表已经按照之前步骤投标人的得分升序排列
+     * @param bidders 投标人列表，Key=投标人编码，value=投保人报价
      * @param zbfFullPath 招标文件全路径（zbf文件的绝对路径）
      */
     public BasePrice(LinkedHashMap<String,BigDecimal> bidders,String zbfFullPath) throws ScriptException {
@@ -43,7 +44,7 @@ public class BasePrice {
             basePrice  = Collections.min(bidders.values());
             System.out.printf("基准价（最小值）=%s%n",basePrice);
         }else if(basePriceComputeType.equals("TopN")){
-            basePrice  = computeTopNBasePrice(bidders,zbfFullPath);
+            basePrice  = computeTopNBasePrice(getOriginalSortedOffer(bidders),zbfFullPath);
             System.out.printf("基准价（TopN）=%s%n",basePrice);
         }
         else if (basePriceComputeType.equals("BaseAsLimitPrice")){
@@ -91,7 +92,7 @@ public class BasePrice {
         if(count ==0){
             throw new RuntimeException("根据投标限制价计算基准价时没有找到符合条件的投标报价");
         }
-        return sum.divide(new BigDecimal(count),2,BigDecimal.ROUND_HALF_UP);
+        return sum.divide(new BigDecimal(count),2,RoundingMode.HALF_UP);
     }
     /***
      * 计算按平均值方式计算基准价
@@ -105,30 +106,28 @@ public class BasePrice {
             price = price.add(offerList.get(i));
             System.out.printf("参与平均的值"+(i+1-method.RemoveLowCount)+"=%s%n",offerList.get(i));
         }
-        price = price.divide(BigDecimal.valueOf(offerList.size()-method.RemoveHeightCount-method.RemoveLowCount),2, BigDecimal.ROUND_DOWN);
-        return price.multiply(method.Factor).divide(BigDecimal.valueOf(100),2, BigDecimal.ROUND_DOWN);
+        price = price.divide(BigDecimal.valueOf(offerList.size()-method.RemoveHeightCount-method.RemoveLowCount),2, RoundingMode.HALF_UP);
+        return price.multiply(method.Factor).divide(BigDecimal.valueOf(100),2, RoundingMode.HALF_UP);
     }
-    private BigDecimal computeTopNBasePrice(LinkedHashMap<String,BigDecimal> bidders,String dbPath) {
+    private BigDecimal computeTopNBasePrice(List<BigDecimal> bidders,String dbPath) {
         Integer topN = Integer.valueOf( OfferScore.getSingleValueFromSqlite(dbPath,"SELECT RemoveMaxValueCount FROM BasePriceComputeMethod"));
         System.out.printf("前N名=%s%n",topN);
-
         BigDecimal price = BigDecimal.valueOf(0);
         Integer count = 0;
-        for (Iterator<String> it = bidders.keySet().iterator(); it.hasNext();) {
-            BigDecimal offer = bidders.get(it.next());
-            price = price.add(offer);
-            System.out.printf("经过之前评审后第"+(count+1)+"名的报价=%s%n",offer);
+        for(Integer i=bidders.size()-1;i>-1;i--){
+            price = price.add(bidders.get(i));
+            System.out.printf("报价第"+(count+1)+"名的报价=%s%n",bidders.get(i));
             count++;
             if(count>=topN){
                 break;
             }
         }
-        price = price.divide(BigDecimal.valueOf(count),2, BigDecimal.ROUND_DOWN);
+        price = price.divide(BigDecimal.valueOf(count),2, RoundingMode.HALF_UP);
         System.out.printf("未计算浮动比例的基准价=%s%n",price);
         BigDecimal factor = new BigDecimal(OfferScore.getSingleValueFromSqlite(dbPath,"SELECT DownFactor FROM BasePriceComputeMethod"));
         if(factor.compareTo(BigDecimal.valueOf(2000))==1)
         {
-            price = price.multiply((factor.subtract(BigDecimal.valueOf(2000)))).divide(BigDecimal.valueOf(100),2, BigDecimal.ROUND_DOWN);
+            price = price.multiply((factor.subtract(BigDecimal.valueOf(2000)))).divide(BigDecimal.valueOf(100),2, RoundingMode.HALF_UP);
             System.out.printf("基准价计算的浮动比例=%s%n",factor);
         }
         return price;

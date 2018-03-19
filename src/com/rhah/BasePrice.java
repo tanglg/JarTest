@@ -26,8 +26,9 @@ public class BasePrice {
      * 初始化一个基准价计算对象
      * @param bidders 投标人列表，Key=投标人编码，value=投保人报价
      * @param zbfFullPath 招标文件全路径（zbf文件的绝对路径）
+     * @param subitemCode 当前标段唯一编码
      */
-    public BasePrice(LinkedHashMap<String,BigDecimal> bidders,String zbfFullPath) throws ScriptException {
+    public BasePrice(LinkedHashMap<String,BigDecimal> bidders,String zbfFullPath,String subitemCode) throws ScriptException {
         if(bidders == null || bidders.size()==0) throw new RuntimeException("未设置投标人数据，或投标人数量为0");
         if(!new File(zbfFullPath).exists()) throw new RuntimeException("指定的招标文件不存在");
 
@@ -48,7 +49,7 @@ public class BasePrice {
             System.out.printf("基准价（TopN）=%s%n",basePrice);
         }
         else if (basePriceComputeType.equals("BaseAsLimitPrice")){
-            basePrice = computeLimitBasePrice(zbfFullPath,getOriginalSortedOffer(bidders));
+            basePrice = computeLimitBasePrice(zbfFullPath,getOriginalSortedOffer(bidders),subitemCode);
             System.out.printf("基准价（基于投标限制价）=%s%n",basePrice);
         }
         else{
@@ -69,9 +70,14 @@ public class BasePrice {
         Collections.sort(list);
         return list;
     }
-    private BigDecimal computeLimitBasePrice(String zbfPath,List<BigDecimal> offerList)
+    private BigDecimal computeLimitBasePrice(String zbfPath,List<BigDecimal> offerList,String subitemCode)
     {
-        BigDecimal limitPrice = new BigDecimal( OfferScore.getSingleValueFromSqlite(zbfPath,"select Backup1 from Overview"));
+        BigDecimal limitPrice;
+        try{
+            limitPrice = new BigDecimal(OfferScore.getSingleValueFromSqlite(zbfPath,"select Backup1 from Overview WHERE Backup2='"+subitemCode+"'"));
+        }catch (Exception ex)  {
+            throw new RuntimeException("根据标段（"+subitemCode+"）获取限价时异常，请确认标段编码是否正确\r\n"+ex.getMessage() ,ex );
+        }
         BigDecimal lowMult = new BigDecimal( OfferScore.getSingleValueFromSqlite(zbfPath,"select LowMult from BasePriceAsTopLimit"));
         BigDecimal topMult = new BigDecimal( OfferScore.getSingleValueFromSqlite(zbfPath,"select TopMult from BasePriceAsTopLimit"));
         BigDecimal lowValue = limitPrice .multiply( lowMult);
@@ -90,7 +96,9 @@ public class BasePrice {
             }
         }
         if(count ==0){
-            throw new RuntimeException("根据投标限制价计算基准价时没有找到符合条件的投标报价");
+            BigDecimal defaultMult = new BigDecimal( OfferScore.getSingleValueFromSqlite(zbfPath,"select Backup1 from BasePriceAsTopLimit"));
+            System.out.print("没有找到符合条件("+lowValue+"-"+topValue+")的投标报价，将采用限价的"+defaultMult+"倍作为基准价");
+            return limitPrice.multiply(defaultMult).setScale(2, RoundingMode.HALF_UP);
         }
         return sum.divide(new BigDecimal(count),2,RoundingMode.HALF_UP);
     }

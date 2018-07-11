@@ -156,7 +156,14 @@ public class BasePrice {
             System.out.print("没有找到符合条件("+lowValue+"-"+topValue+")的投标报价，将采用限价的"+defaultMult+"倍作为基准价");
             return limitPrice.multiply(defaultMult).setScale(2, RoundingMode.HALF_UP);
         }
-        return sum.divide(new BigDecimal(count),2,RoundingMode.HALF_UP);
+        //获取浮动比例  最大值为100,0表示未设置比例
+        BigDecimal factor = new BigDecimal( OfferScore.getSingleValueFromSqlite(zbfPath,"select Backup4 from BasePriceAsTopLimit"));
+        System.out.printf("浮动比例（最大值为100,0表示未设置比例）为=%s%n", factor);
+        BigDecimal result =  sum.divide(new BigDecimal(count),2,RoundingMode.HALF_UP);
+        if(factor.compareTo(BigDecimal.valueOf(0.0))==0){
+            return result;
+        }
+        return result.multiply(factor).divide(BigDecimal.valueOf(100));
     }
     /**
      * 计算按平均值方式计算基准价

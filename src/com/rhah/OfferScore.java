@@ -39,24 +39,27 @@ public class OfferScore{
      * @param bidders 投标人列表，Key=投标人编码，value=投保人报价，投标人列表无须进行任何排序
      * @param zbfFullPath 招标文件全路径（zbf文件的绝对路径）
      * @param price 基准价
+     * @param offerScoreNodeKey 当前要计算的报价得分节点的编码，SQLite库EvaluationFlow表NodeKey列的值
+     * @param scale 报价分计算结果保留小数位
      */
-    public OfferScore(LinkedHashMap<String,BigDecimal> bidders,String zbfFullPath,BigDecimal price) throws ScriptException {
+    public OfferScore(LinkedHashMap<String,BigDecimal> bidders,String zbfFullPath,BigDecimal price,String offerScoreNodeKey,Integer scale) throws ScriptException {
         if(bidders == null || bidders.size()==0) throw new RuntimeException("未设置投标人数据，或投标人数量为0");
         if(!new File(zbfFullPath).exists()) throw new RuntimeException("指定的招标文件不存在");
         basePrice = price;
 
-        bidderOfferScore = computeOfferScore(bidders,zbfFullPath);
+        bidderOfferScore = computeOfferScore(bidders,zbfFullPath,offerScoreNodeKey,scale);
     }
 
     /***
      * 计算报价得分
      * @param bidders 投标人及报价列表
      * @param zbfFullPath 招标文件全路径
+     * @param offerScoreNodeKey 当前要计算的报价得分节点的编码，SQLite库EvaluationFlow表NodeKey列的值
      * @return 投标人及报价得分
      * @throws ScriptException
      */
-    private LinkedHashMap<String,BigDecimal>  computeOfferScore(LinkedHashMap<String,BigDecimal> bidders,String zbfFullPath) throws ScriptException {
-        String[] parameter = getOfferScoreFormula(zbfFullPath).split("@");//注意返回值格式
+    private LinkedHashMap<String,BigDecimal>  computeOfferScore(LinkedHashMap<String,BigDecimal> bidders,String zbfFullPath,String offerScoreNodeKey,Integer scale) throws ScriptException {
+        String[] parameter = getOfferScoreFormula(zbfFullPath,offerScoreNodeKey).split("@");//注意返回值格式
         String formula= parameter[0];
         System.out.printf("报价得分计算公式=%s%n",formula);
         BigDecimal minScore = new BigDecimal( parameter[1]);
@@ -69,7 +72,7 @@ public class OfferScore{
 
         for (String bidderID:bidders.keySet()
              ) {
-            scoreMap.put(bidderID,computeBidderScore(formula,bidders.get(bidderID),maxScore,minScore).setScale(3, RoundingMode.HALF_UP));
+            scoreMap.put(bidderID,computeBidderScore(formula,bidders.get(bidderID),maxScore,minScore).setScale(scale, RoundingMode.HALF_UP));
 
         }
 
@@ -108,8 +111,9 @@ public class OfferScore{
      * @param zbfFullPath 招标文件全路径（zbf文件的绝对路径）
      * @return 报价得分计算公式，注意：返回了除公式外额外数据，格式=公式@最低分@最高分。
      */
-    private String getOfferScoreFormula(String zbfFullPath){
-        return getSingleValueFromSqlite(zbfFullPath,"select Formula ||'@'||LowestScoreWhenIncrease||'@'||LowestScoreWhenReduce AS Parameter from OfferScoreComputeMethod");
+    private String getOfferScoreFormula(String zbfFullPath,String offerScoreNodeKey){
+        return getSingleValueFromSqlite(zbfFullPath,"select Formula ||'@'||LowestScoreWhenIncrease||'@'||LowestScoreWhenReduce AS Parameter"+
+                                                        " from OfferScoreComputeMethod where RelationKey="+offerScoreNodeKey);
     }
     /***
      * 计算数学表达式的值

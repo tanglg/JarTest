@@ -15,52 +15,78 @@ public class BasePrice {
     存储基准价
      */
     private BigDecimal basePrice;
+    /*
+    招标文件（已解密的zbf）全路径
+     */
+    private String _zbfFullPath;
+    /*
+    当前基准价节点编码
+     */
+    private String _basePriceNodeKey;
+    /*
+    当前标段编码
+     */
+    private String _subItemCode;
     /**
      * 获取基准价
+     * @param biddersPrice 投标人报价列表(注意区别提取哪个报价条目)，Key=投标人编码，value=投保人报价
+     * @param biddersScore 投标人累计得分列表，Key=投标人编码，value=投保人累计得分
+     * @param scale 基准价计算结果保留的小数位数
      * @return 当前标段的基准价
      */
-    public BigDecimal getBasePrice(){
-        return basePrice ;
-    }
-    /**
-     * 初始化一个基准价计算对象
-     * @param biddersPrice 投标人报价列表，Key=投标人编码，value=投保人报价
-     * @param biddersScore 投标人累计得分列表，Key=投标人编码，value=投保人累计得分
-     * @param zbfFullPath 招标文件全路径（zbf文件的绝对路径）
-     * @param subitemCode 当前标段唯一编码
-     */
-    public BasePrice(LinkedHashMap<String,BigDecimal> biddersPrice,LinkedHashMap<String,BigDecimal> biddersScore,String zbfFullPath,String subitemCode) throws ScriptException {
-        if(biddersPrice == null || biddersPrice.size()==0) throw new RuntimeException("未设置投标人数据，或投标人数量为0");
-        if(!new File(zbfFullPath).exists()) throw new RuntimeException("指定的招标文件不存在");
-
-        String basePriceComputeType = OfferScore.getSingleValueFromSqlite(zbfFullPath,"SELECT ComputeType FROM BasePriceComputeMethod");
+    public BigDecimal getBasePrice(LinkedHashMap<String,BigDecimal> biddersPrice,LinkedHashMap<String,BigDecimal> biddersScore,Integer scale){
+        String basePriceComputeType= getComputeType(_zbfFullPath,_basePriceNodeKey);
 
         if(basePriceComputeType.equals("Average")){
-            RemoveBidderResult result = getRemvoeBidderCount(zbfFullPath,biddersPrice.size());
+            RemoveBidderResult result = getRemvoeBidderCount(_zbfFullPath,biddersPrice.size());
             if(result.RemoveLowCount+result.RemoveHeightCount>=biddersPrice.size()){
                 throw new RuntimeException("去除最高和最高报价后，有效报价数量不足");
             }
-            basePrice = computeAverageBasePrice(getOriginalSortedOffer(biddersPrice),result);
+            basePrice = computeAverageBasePrice(getOriginalSortedOffer(biddersPrice),result,scale);
             System.out.printf("基准价（平均值）=%s%n",basePrice);
         }else if(basePriceComputeType.equals("MinValue")){
             basePrice  = Collections.min(biddersPrice.values());
             System.out.printf("基准价（最小值）=%s%n",basePrice);
         }else if(basePriceComputeType.equals("TopN")){
-            basePrice  = computeTopNBasePrice(getOriginalSortedOffer(biddersPrice),zbfFullPath);
+            basePrice  = computeTopNBasePrice(getOriginalSortedOffer(biddersPrice),_zbfFullPath,scale);
             System.out.printf("基准价（基于报价从高到低前N名计算平均值）=%s%n",basePrice);
         }
         else if (basePriceComputeType.equals("BaseAsLimitPrice")){
-            basePrice = computeLimitBasePrice(zbfFullPath,getOriginalSortedOffer(biddersPrice),subitemCode);
+            basePrice = computeLimitBasePrice(_zbfFullPath,getOriginalSortedOffer(biddersPrice),_subItemCode);
             System.out.printf("基准价（基于投标限制价）=%s%n",basePrice);
         }
         else if (basePriceComputeType.equals("TopScoreN")){
-            basePrice = computeTopScoreBasePrice(zbfFullPath,extractAscSortedOfferByScore(biddersPrice,biddersScore));
+            basePrice = computeTopScoreBasePrice(_zbfFullPath,extractAscSortedOfferByScore(biddersPrice,biddersScore));
             System.out.printf("基准价（基于之前步骤累计得分前N名计算平均值）=%s%n",basePrice);
         }
         else{
             throw new RuntimeException("不支持根据 "+basePriceComputeType+" 方式计算基准价");
         }
+        return basePrice ;
     }
+
+    /**
+     * 基准价计算对象
+     * @param zbfFullPath 招标文件全路径（解密后的zbf文件绝对路径）
+     * @param subItemCode 当前标段唯一编码
+     * @param basePriceNodeKey 需要进行计算的基准价节点的编码，SQLite库EvaluationFlow表NodeKey列的值
+     */
+    public BasePrice(String zbfFullPath,String subItemCode,String basePriceNodeKey) {
+        _zbfFullPath = zbfFullPath;
+        _basePriceNodeKey = basePriceNodeKey;
+        _subItemCode = subItemCode;
+    }
+    private String getComputeType(String zbfFullPath,String basePriceNodeKey) {
+        return OfferScore.getSingleValueFromSqlite(zbfFullPath,"SELECT ComputeType FROM BasePriceComputeMethod WHERE RelationKey="+basePriceNodeKey);
+    }
+    /**
+     * 获取当前基准价计算使用的是开标一览表中的哪个报价条目
+     * @return 报价条目的名称
+     */
+    public String getPriceItem() {
+        return OfferScore.getSingleValueFromSqlite(_zbfFullPath, "SELECT Backup1 FROM BasePriceComputeMethod WHERE RelationKey=" + _basePriceNodeKey);
+    }
+
     /**
      * 获取经过升序排序的投标人数组，要求Key=投标人编码，value=投保人报价或得分，将根据value值进行升序排列
      * @param bidders 投标人报价数据，Key=投标人编码，value=用来排序的数值
@@ -171,16 +197,16 @@ public class BasePrice {
      * @param method 平均值计算时的参数，主要包括去掉最高、最低以及浮动比例规则
      * @return 基准价，未设置小数位
      */
-    private BigDecimal computeAverageBasePrice(List<BigDecimal> offerList,RemoveBidderResult method){
+    private BigDecimal computeAverageBasePrice(List<BigDecimal> offerList,RemoveBidderResult method,Integer scale){
         BigDecimal price = BigDecimal.valueOf(0);
         for(Integer i=method.RemoveLowCount;i<offerList.size()-method.RemoveHeightCount;i++){
             price = price.add(offerList.get(i));
             System.out.printf("参与平均的值"+(i+1-method.RemoveLowCount)+"=%s%n",offerList.get(i));
         }
-        price = price.divide(BigDecimal.valueOf(offerList.size()-method.RemoveHeightCount-method.RemoveLowCount),2, RoundingMode.HALF_UP);
-        return price.multiply(method.Factor).divide(BigDecimal.valueOf(100),2, RoundingMode.HALF_UP);
+        price = price.divide(BigDecimal.valueOf(offerList.size()-method.RemoveHeightCount-method.RemoveLowCount),scale, RoundingMode.HALF_UP);
+        return price.multiply(method.Factor).divide(BigDecimal.valueOf(100),scale, RoundingMode.HALF_UP);
     }
-    private BigDecimal computeTopNBasePrice(List<BigDecimal> bidders,String dbPath) {
+    private BigDecimal computeTopNBasePrice(List<BigDecimal> bidders,String dbPath,Integer scale) {
         Integer topN = Integer.valueOf( OfferScore.getSingleValueFromSqlite(dbPath,"SELECT RemoveMaxValueCount FROM BasePriceComputeMethod"));
         System.out.printf("前N名=%s%n",topN);
         BigDecimal price = BigDecimal.valueOf(0);
@@ -193,12 +219,12 @@ public class BasePrice {
                 break;
             }
         }
-        price = price.divide(BigDecimal.valueOf(count),2, RoundingMode.HALF_UP);
+        price = price.divide(BigDecimal.valueOf(count),scale, RoundingMode.HALF_UP);
         System.out.printf("未计算浮动比例的基准价=%s%n",price);
         BigDecimal factor = new BigDecimal(OfferScore.getSingleValueFromSqlite(dbPath,"SELECT DownFactor FROM BasePriceComputeMethod"));
         if(factor.compareTo(BigDecimal.valueOf(2000))==1)
         {
-            price = price.multiply((factor.subtract(BigDecimal.valueOf(2000)))).divide(BigDecimal.valueOf(100),2, RoundingMode.HALF_UP);
+            price = price.multiply((factor.subtract(BigDecimal.valueOf(2000)))).divide(BigDecimal.valueOf(100),scale, RoundingMode.HALF_UP);
             System.out.printf("基准价计算的浮动比例=%s%n",factor);
         }
         return price;

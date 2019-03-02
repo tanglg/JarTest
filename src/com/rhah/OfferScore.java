@@ -16,6 +16,8 @@ import java.util.*;
  */
 public class OfferScore{
 
+    private String _zbfFullPath;
+    private String _offerScoreNodeKey;
     /*
     存储基准价
      */
@@ -46,8 +48,17 @@ public class OfferScore{
         if(bidders == null || bidders.size()==0) throw new RuntimeException("未设置投标人数据，或投标人数量为0");
         if(!new File(zbfFullPath).exists()) throw new RuntimeException("指定的招标文件不存在");
         basePrice = price;
-
+        _zbfFullPath = zbfFullPath;
+        _offerScoreNodeKey = offerScoreNodeKey;
         bidderOfferScore = computeOfferScore(bidders,zbfFullPath,offerScoreNodeKey,scale);
+    }
+
+    /**
+     * 获取当前报价分阶段对应的基准价节点
+     * @return 基准价节点的NodeKey
+     */
+    public String GetRelateBasePrice(){
+        return OfferScore.getSingleValueFromSqlite(_zbfFullPath, "SELECT Backup1 FROM OfferScoreComputeMethod WHERE NodeKey=" + _offerScoreNodeKey);
     }
 
     /***

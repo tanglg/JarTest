@@ -54,7 +54,8 @@ public class Main {
 
         System.out.printf("最终计算基准价=%s%n",basePrice );
 
-        OfferScore score = new OfferScore(generateDemoBidderOfferData(),zbfPath,basePrice,"636856700322337313",2);
+        OfferScore score = new OfferScore(generateDemoBidderOfferData(),zbfPath,basePrice,"636761581405926978",2);
+        System.out.printf("报价分采用的基准价节点：%s%n",score.GetRelateBasePrice() );
         LinkedHashMap offerScore = score.getBidderOfferScore();
         for (Object bidder : offerScore.keySet()
                 ) {

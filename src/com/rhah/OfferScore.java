@@ -18,6 +18,8 @@ public class OfferScore{
 
     private String _zbfFullPath;
     private String _offerScoreNodeKey;
+    LinkedHashMap<String,BigDecimal> _bidders;
+    Integer _scale;
     /*
     存储基准价
      */
@@ -31,7 +33,8 @@ public class OfferScore{
      * 获取投标人报价得分
      * @return 投标人列表，Key=投标人编码，value=投标人报价得分
      */
-    public LinkedHashMap<String,BigDecimal> getBidderOfferScore(){
+    public LinkedHashMap<String,BigDecimal> getBidderOfferScore() throws ScriptException {
+        bidderOfferScore = computeOfferScore(_bidders,_zbfFullPath,_offerScoreNodeKey,_scale);
         return  bidderOfferScore;
     }
 
@@ -50,7 +53,8 @@ public class OfferScore{
         basePrice = price;
         _zbfFullPath = zbfFullPath;
         _offerScoreNodeKey = offerScoreNodeKey;
-        bidderOfferScore = computeOfferScore(bidders,zbfFullPath,offerScoreNodeKey,scale);
+        _bidders = bidders;
+        _scale = scale;
     }
 
     /**
@@ -58,7 +62,7 @@ public class OfferScore{
      * @return 基准价节点的NodeKey
      */
     public String GetRelateBasePrice(){
-        return OfferScore.getSingleValueFromSqlite(_zbfFullPath, "SELECT Backup1 FROM OfferScoreComputeMethod WHERE NodeKey=" + _offerScoreNodeKey);
+        return OfferScore.getSingleValueFromSqlite(_zbfFullPath, "SELECT Backup1 FROM OfferScoreComputeMethod WHERE RelationKey=" + _offerScoreNodeKey);
     }
 
     /***

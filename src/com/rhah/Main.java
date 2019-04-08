@@ -48,15 +48,16 @@ public class Main {
         /*BasePrice priceObject= new BasePrice(generateDemoBidderOfferData(),generateDemoBidderScoreData(),zbfPath,
                 "I1300000001000117001001","636856699991660264");*/
 
-        BasePrice priceObject= new BasePrice(zbfPath,"I1300000001000117001001","636761581219885840");
+        BasePrice priceObject= new BasePrice(zbfPath,"I1300000001000117001001","636903324990146947");
         System.out.printf("基准价采用的报价条目=%s%n",priceObject.getPriceItem());
         BigDecimal basePrice = priceObject.getBasePrice(generateDemoBidderOfferData(),generateDemoBidderScoreData(),3);
 
         System.out.printf("最终计算基准价=%s%n",basePrice );
 
-        OfferScore score = new OfferScore(generateDemoBidderOfferData(),zbfPath,basePrice,"636761581405926978",2);
-        System.out.printf("报价分采用的基准价节点：%s%n",score.GetRelateBasePrice() );
-        LinkedHashMap offerScore = score.getBidderOfferScore();
+        OfferScore score = new OfferScore(zbfPath,"636903325136710124",2);
+        System.out.printf("报价分采用的基准价节点：%s%n",score.GetRelateBasePrice());
+        System.out.printf("报价分采用的开标一览表项是：%s%n",score.GetCustomItem());
+        LinkedHashMap offerScore = score.getBidderOfferScore(generateDemoBidderOfferData(),basePrice);
         for (Object bidder : offerScore.keySet()
                 ) {
             System.out.printf("%s=%s%n", bidder, offerScore.get(bidder));

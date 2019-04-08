@@ -31,9 +31,14 @@ public class OfferScore{
 
     /**
      * 获取投标人报价得分
+     * @param bidders 投标人列表，Key=投标人编码，value=投保人报价，投标人列表无须进行任何排序
+     * @param price 基准价
      * @return 投标人列表，Key=投标人编码，value=投标人报价得分
      */
-    public LinkedHashMap<String,BigDecimal> getBidderOfferScore() throws ScriptException {
+    public LinkedHashMap<String,BigDecimal> getBidderOfferScore(LinkedHashMap<String,BigDecimal> bidders,BigDecimal price) throws ScriptException {
+        if(bidders == null || bidders.size()==0) throw new RuntimeException("未设置投标人数据，或投标人数量为0");
+        _bidders = bidders;
+        basePrice = price;
         bidderOfferScore = computeOfferScore(_bidders,_zbfFullPath,_offerScoreNodeKey,_scale);
         return  bidderOfferScore;
     }
@@ -41,19 +46,14 @@ public class OfferScore{
 
     /**
      * 初始化一个报价得分计算对象
-     * @param bidders 投标人列表，Key=投标人编码，value=投保人报价，投标人列表无须进行任何排序
      * @param zbfFullPath 招标文件全路径（zbf文件的绝对路径）
-     * @param price 基准价
      * @param offerScoreNodeKey 当前要计算的报价得分节点的编码，SQLite库EvaluationFlow表NodeKey列的值
      * @param scale 报价分计算结果保留小数位
      */
-    public OfferScore(LinkedHashMap<String,BigDecimal> bidders,String zbfFullPath,BigDecimal price,String offerScoreNodeKey,Integer scale) throws ScriptException {
-        if(bidders == null || bidders.size()==0) throw new RuntimeException("未设置投标人数据，或投标人数量为0");
+    public OfferScore(String zbfFullPath,String offerScoreNodeKey,Integer scale) throws ScriptException {
         if(!new File(zbfFullPath).exists()) throw new RuntimeException("指定的招标文件不存在");
-        basePrice = price;
         _zbfFullPath = zbfFullPath;
         _offerScoreNodeKey = offerScoreNodeKey;
-        _bidders = bidders;
         _scale = scale;
     }
 
@@ -65,6 +65,14 @@ public class OfferScore{
         return OfferScore.getSingleValueFromSqlite(_zbfFullPath, "SELECT Backup1 FROM OfferScoreComputeMethod WHERE RelationKey=" + _offerScoreNodeKey);
     }
 
+    /**
+     * 获取当前报价分节点使用的是哪个开标一览表条目
+     * @return 返回开标一览表项的唯一编码（SQLite中CustomItem的NodeKey列的值)
+     */
+    public String GetCustomItem()
+    {
+        return OfferScore.getSingleValueFromSqlite(_zbfFullPath, "SELECT Backup1 FROM BasePriceComputeMethod WHERE RelationKey=(SELECT Backup1 FROM OfferScoreComputeMethod WHERE RelationKey="+_offerScoreNodeKey+")" );
+    }
     /***
      * 计算报价得分
      * @param bidders 投标人及报价列表

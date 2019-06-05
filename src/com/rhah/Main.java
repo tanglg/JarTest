@@ -25,7 +25,7 @@ public class Main {
         bidderList.put("李32", BigDecimal.valueOf(41.5));
         bidderList.put("张31", BigDecimal.valueOf(39.6));
         bidderList.put("丁36", BigDecimal.valueOf(23));
-        bidderList.put("王33", BigDecimal.valueOf(35.19));
+        bidderList.put("王33", BigDecimal.valueOf(30.19));
         bidderList.put("赵34", BigDecimal.valueOf(31.1));
         bidderList.put("孙35", BigDecimal.valueOf(37.5));
 

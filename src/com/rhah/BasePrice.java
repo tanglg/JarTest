@@ -27,10 +27,41 @@ public class BasePrice {
     当前标段编码
      */
     private String _subItemCode;
+
+    /**
+     * 获取房建项目随机平均价的基准价
+     * @param weight 现场抽取的随机数 （注意，应为除100后的数）
+     * @param biddersPrice 投标人报价列表(注意区别提取哪个报价条目)，Key=投标人编码，value=投保人报价
+     * @param scale 最终结果保留的小数位(四舍五入)
+     * @return 评分基准价
+     */
+    public BigDecimal getRandomAverageBasePrice(LinkedHashMap<String,BigDecimal> biddersPrice,BigDecimal weight,int scale) {
+        basePrice = computeRandomAveragePrice(getOriginalSortedOffer(biddersPrice));
+        return basePrice.multiply(weight).setScale(scale, RoundingMode.HALF_UP);
+    }
+
+    /**
+     * 获取房建项目合理平均价的基准价
+     * @param biddersPrice 投标人报价列表(注意区别提取哪个报价条目)，Key=投标人编码，value=投保人报价
+     * @param c1 现场抽取的基准价系数（注意，应为除100后的数）
+     * @param c2 现场抽取的最高限价系数（注意，应为除100后的数）
+     * @param scale 最终结果保留的小数位(四舍五入)
+     * @return 评分基准价
+     */
+    public BigDecimal getReasonableAverageBasePrice(LinkedHashMap<String,BigDecimal> biddersPrice,BigDecimal c1,BigDecimal c2,int scale) {
+        BigDecimal offerScore = computeRandomAveragePrice(getOriginalSortedOffer(biddersPrice));
+        offerScore = offerScore.multiply(c1).setScale(scale, RoundingMode.HALF_UP);
+        BigDecimal q1 = new BigDecimal(OfferScore.getSingleValueFromSqlite(_zbfFullPath,""));
+
+        BigDecimal limitScore = new BigDecimal(0);
+
+        basePrice = offerScore.add(limitScore);
+        return basePrice;
+    }
     /**
      * 获取基准价
      * @param biddersPrice 投标人报价列表(注意区别提取哪个报价条目)，Key=投标人编码，value=投保人报价
-     * @param biddersScore 投标人累计得分列表，Key=投标人编码，value=投保人累计得分
+     * @param biddersScore 投标人累计得分列表，Key=投标人编码，value=投保人累计得分，无累计得分时传入null
      * @param scale 基准价计算结果保留的小数位数
      * @return 当前标段的基准价
      */
@@ -58,6 +89,13 @@ public class BasePrice {
         else if (basePriceComputeType.equals("TopScoreN")){
             basePrice = computeTopScoreBasePrice(_zbfFullPath,extractAscSortedOfferByScore(biddersPrice,biddersScore));
             System.out.printf("基准价（基于之前步骤累计得分前N名计算平均值）=%s%n",basePrice);
+        }
+        else if(basePriceComputeType.equals("SecondLower")){
+            basePrice = computeSecondLowerPrice(getOriginalSortedOffer(biddersPrice));
+            System.out.printf("基准价（次低价）=%s%n",basePrice);
+        }
+        else if(basePriceComputeType.equals("RandomAverage")){
+            basePrice = computeRandomAveragePrice(getOriginalSortedOffer(biddersPrice));
         }
         else{
             throw new RuntimeException("不支持根据 "+basePriceComputeType+" 方式计算基准价");
@@ -150,6 +188,35 @@ public class BasePrice {
         }
         price = price.divide(BigDecimal.valueOf(count),2, RoundingMode.HALF_UP);
         System.out.printf("基准价=%s%n",price);
+        return price;
+    }
+    private BigDecimal computeSecondLowerPrice(List<BigDecimal> offerList)
+    {
+        if(offerList.isEmpty())throw new RuntimeException("报价数据为空，无法计算次低价基准价");
+        if(offerList.size()==1) return offerList.get(0);
+        return offerList.get(1);
+    }
+    private BigDecimal computeRandomAveragePrice(List<BigDecimal> offerList)
+    {
+        if(offerList.isEmpty())throw new RuntimeException("报价数据为空，无法计算基准价");
+        System.out.printf("%s个报价参与计算%n", offerList.size());
+        BigDecimal price = BigDecimal.valueOf(0);
+        if(offerList.size()<20) {
+            for(int i=0;i<offerList.size();i++){
+                price = price.add(offerList.get(i));
+            }
+            price = price.divide(BigDecimal.valueOf(offerList.size()),2, RoundingMode.HALF_UP);
+            System.out.printf("直接取平均值，基准价=%s%n", price);
+        } else{
+            int startPos = (int) Math.floor(offerList.size() * 0.2);
+            int endPos = (int) Math.floor(offerList.size() * 0.2);
+
+            for(int i=startPos;i<offerList.size()-endPos;i++){
+                price = price.add(offerList.get(i));
+            }
+            price = price.divide(BigDecimal.valueOf(offerList.size()-startPos-endPos),2, RoundingMode.HALF_UP);
+            System.out.printf("去掉%s个最高  %s个最低后，基准价=%s%n", startPos,endPos,price);
+        }
         return price;
     }
     private BigDecimal computeLimitBasePrice(String zbfPath,List<BigDecimal> offerList,String subitemCode)

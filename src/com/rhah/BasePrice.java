@@ -29,7 +29,7 @@ public class BasePrice {
     private String _subItemCode;
 
     /**
-     * 获取房建项目随机平均价的基准价
+     * 获取房建项目随机平均价的基准价(BindRules表中Code=BanFa，Value=RandomAverage时)
      * @param weight 现场抽取的随机数 （注意，应为除100后的数）
      * @param biddersPrice 投标人报价列表(注意区别提取哪个报价条目)，Key=投标人编码，value=投保人报价
      * @param scale 最终结果保留的小数位(四舍五入)
@@ -41,7 +41,7 @@ public class BasePrice {
     }
 
     /**
-     * 获取房建项目合理平均价的基准价
+     * 获取房建项目合理平均价的基准价(BindRules表中Code=BanFa，Value=ReasonableAverage时)
      * @param biddersPrice 投标人报价列表(注意区别提取哪个报价条目)，Key=投标人编码，value=投保人报价
      * @param c1 现场抽取的基准价系数（注意，应为除100后的数）
      * @param c2 现场抽取的最高限价系数（注意，应为除100后的数）
@@ -51,9 +51,13 @@ public class BasePrice {
     public BigDecimal getReasonableAverageBasePrice(LinkedHashMap<String,BigDecimal> biddersPrice,BigDecimal c1,BigDecimal c2,int scale) {
         BigDecimal offerScore = computeRandomAveragePrice(getOriginalSortedOffer(biddersPrice));
         offerScore = offerScore.multiply(c1).setScale(scale, RoundingMode.HALF_UP);
-        BigDecimal q1 = new BigDecimal(OfferScore.getSingleValueFromSqlite(_zbfFullPath,""));
+        BigDecimal q1 = new BigDecimal(OfferScore.getSingleValueFromSqlite(_zbfFullPath,"SELECT Backup3 FROM BasePriceComputeMethod WHERE RelationKey='"+_basePriceNodeKey+"'"));
+        offerScore = offerScore.multiply(q1).setScale(scale, RoundingMode.HALF_UP);
 
-        BigDecimal limitScore = new BigDecimal(0);
+        BigDecimal q2 = new BigDecimal(OfferScore.getSingleValueFromSqlite(_zbfFullPath,"SELECT Backup4 FROM BasePriceComputeMethod WHERE RelationKey='"+_basePriceNodeKey+"'"));
+        BigDecimal limitPrice = new BigDecimal(OfferScore.getSingleValueFromSqlite(_zbfFullPath,"SELECT Backup1 FROM Overview WHERE Backup2='"+_subItemCode+"'"));
+        BigDecimal limitScore;
+        limitScore = q2.multiply(c2).multiply(limitPrice).setScale(scale,RoundingMode.HALF_UP);
 
         basePrice = offerScore.add(limitScore);
         return basePrice;
@@ -132,8 +136,7 @@ public class BasePrice {
      */
     private List<BigDecimal> getOriginalSortedOffer(LinkedHashMap<String,BigDecimal> bidders){
         ArrayList<BigDecimal> list = new ArrayList<>(bidders.size());
-        for (BigDecimal offer : bidders.values()
-                ) {
+        for (BigDecimal offer : bidders.values() ) {
             list.add(offer);
         }
         Collections.sort(list);
@@ -160,8 +163,7 @@ public class BasePrice {
        simpleBidders.sort(new SortByScore());
        ArrayList<BigDecimal> list = new ArrayList<>(offers.size());
        System.out.printf("根据累计得分升序排序后：%n");
-       for (SimpleBidder sbidder : simpleBidders
-               ) {
+       for (SimpleBidder sbidder : simpleBidders ) {
            list.add(sbidder.offer);
            System.out.printf("投标人=%s 分数=%s  报价=%s%n",sbidder.bidderKey,sbidder.score.toString(),sbidder.offer.toString());
        }

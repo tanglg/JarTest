@@ -51,25 +51,25 @@ public class BasePrice {
      * @return 评分基准价
      */
     public BigDecimal getReasonableAverageBasePrice(LinkedHashMap<String,BigDecimal> biddersPrice,BigDecimal c1,BigDecimal c2,int scale) {
-        System.out.printf("合理平均价作为基准价");
+        System.out.printf("合理平均价作为基准价%n");
         BigDecimal offerScore = computeRandomAveragePrice(getOriginalSortedOffer(biddersPrice));
-        System.out.printf("A=s%",offerScore);
+        System.out.printf("A=%s%n",offerScore);
         offerScore = offerScore.multiply(c1).setScale(scale, RoundingMode.HALF_UP);
-        BigDecimal q1 = new BigDecimal(OfferScore.getSingleValueFromSqlite(_zbfFullPath,"SELECT Backup3 FROM BasePriceComputeMethod WHERE RelationKey='"+_basePriceNodeKey+"'"));
-        System.out.printf("Q1=s%",q1);
+        BigDecimal q1 = new BigDecimal(OfferScore.getSingleValueFromSqlite(_zbfFullPath,"SELECT Backup3 FROM BasePriceComputeMethod WHERE RelationKey='"+_basePriceNodeKey+"'")).divide(new BigDecimal(100));
+        System.out.printf("Q1=%s%n",q1);
         offerScore = offerScore.multiply(q1).setScale(scale, RoundingMode.HALF_UP);
-        System.out.printf("A*Q1*C1=s%",offerScore);
+        System.out.printf("A*Q1*C1=%s%n",offerScore);
 
-        BigDecimal q2 = new BigDecimal(OfferScore.getSingleValueFromSqlite(_zbfFullPath,"SELECT Backup4 FROM BasePriceComputeMethod WHERE RelationKey='"+_basePriceNodeKey+"'"));
-        System.out.printf("Q2=s%",q2);
+        BigDecimal q2 = new BigDecimal(OfferScore.getSingleValueFromSqlite(_zbfFullPath,"SELECT Backup4 FROM BasePriceComputeMethod WHERE RelationKey='"+_basePriceNodeKey+"'")).divide(new BigDecimal(100));
+        System.out.printf("Q2=%s%n",q2);
         BigDecimal limitPrice = new BigDecimal(OfferScore.getSingleValueFromSqlite(_zbfFullPath,"SELECT Backup1 FROM Overview WHERE Backup2='"+_subItemCode+"'"));
-        System.out.printf("B=s%",limitPrice);
+        System.out.printf("B=%s%n",limitPrice);
         BigDecimal limitScore;
         limitScore = q2.multiply(c2).multiply(limitPrice).setScale(scale,RoundingMode.HALF_UP);
-        System.out.printf("B*Q2*C2=s%",limitScore);
+        System.out.printf("B*Q2*C2=%s%n",limitScore);
 
         basePrice = offerScore.add(limitScore);
-        System.out.printf("基准价=",basePrice);
+        System.out.printf("基准价=%s%n",basePrice);
 
         return basePrice;
     }

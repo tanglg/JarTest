@@ -36,7 +36,9 @@ public class BasePrice {
      * @return 评分基准价
      */
     public BigDecimal getRandomAverageBasePrice(LinkedHashMap<String,BigDecimal> biddersPrice,BigDecimal weight,int scale) {
+        System.out.printf("随机平均价作为基准价");
         basePrice = computeRandomAveragePrice(getOriginalSortedOffer(biddersPrice));
+        System.out.printf("基准价=",basePrice);
         return basePrice.multiply(weight).setScale(scale, RoundingMode.HALF_UP);
     }
 
@@ -49,17 +51,26 @@ public class BasePrice {
      * @return 评分基准价
      */
     public BigDecimal getReasonableAverageBasePrice(LinkedHashMap<String,BigDecimal> biddersPrice,BigDecimal c1,BigDecimal c2,int scale) {
+        System.out.printf("合理平均价作为基准价");
         BigDecimal offerScore = computeRandomAveragePrice(getOriginalSortedOffer(biddersPrice));
+        System.out.printf("A=s%",offerScore);
         offerScore = offerScore.multiply(c1).setScale(scale, RoundingMode.HALF_UP);
         BigDecimal q1 = new BigDecimal(OfferScore.getSingleValueFromSqlite(_zbfFullPath,"SELECT Backup3 FROM BasePriceComputeMethod WHERE RelationKey='"+_basePriceNodeKey+"'"));
+        System.out.printf("Q1=s%",q1);
         offerScore = offerScore.multiply(q1).setScale(scale, RoundingMode.HALF_UP);
+        System.out.printf("A*Q1*C1=s%",offerScore);
 
         BigDecimal q2 = new BigDecimal(OfferScore.getSingleValueFromSqlite(_zbfFullPath,"SELECT Backup4 FROM BasePriceComputeMethod WHERE RelationKey='"+_basePriceNodeKey+"'"));
+        System.out.printf("Q2=s%",q2);
         BigDecimal limitPrice = new BigDecimal(OfferScore.getSingleValueFromSqlite(_zbfFullPath,"SELECT Backup1 FROM Overview WHERE Backup2='"+_subItemCode+"'"));
+        System.out.printf("B=s%",limitPrice);
         BigDecimal limitScore;
         limitScore = q2.multiply(c2).multiply(limitPrice).setScale(scale,RoundingMode.HALF_UP);
+        System.out.printf("B*Q2*C2=s%",limitScore);
 
         basePrice = offerScore.add(limitScore);
+        System.out.printf("基准价=",basePrice);
+
         return basePrice;
     }
     /**

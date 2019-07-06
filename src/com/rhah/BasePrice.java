@@ -137,7 +137,12 @@ public class BasePrice {
      * @return 报价条目的名称
      */
     public String getPriceItem() {
-        return OfferScore.getSingleValueFromSqlite(_zbfFullPath, "SELECT Backup1 FROM BasePriceComputeMethod WHERE RelationKey=" + _basePriceNodeKey);
+        String signupType = OfferScore.getSingleValueFromSqlite(_zbfFullPath, "SELECT count(*)  FROM Parameters where ParameterName='SignupType' AND ParameterValue='1'");
+        if(signupType.equals("1")){
+            return OfferScore.getSingleValueFromSqlite(_zbfFullPath, "SELECT NodeKey FROM CustomItem WHERE Backup2=='"+_subItemCode+"' AND Backup4=0");
+        }else {
+            return OfferScore.getSingleValueFromSqlite(_zbfFullPath, "SELECT Backup1 FROM BasePriceComputeMethod WHERE RelationKey=" + _basePriceNodeKey);
+        }
     }
 
     /**

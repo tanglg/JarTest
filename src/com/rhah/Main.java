@@ -69,18 +69,18 @@ public class Main {
         return bidderList;
     }
     public static void testComputeBasePrice() throws ScriptException {
-        //String zbfPath = "H:\\zhaobiao\\示例项目\\EPC\\epc项目测试\\epc项目测试.zbf";
-        String zbfPath = "C:\\Users\\tanglg\\Desktop\\123\\123.zbf";
+        String zbfPath = "C:\\Users\\tanglg\\Desktop\\zfcg-gkzb-cs\\zfcg-gkzb-cs.zbf";
+        //String zbfPath = "C:\\Users\\tanglg\\Desktop\\123\\123.zbf";
         /*BasePrice priceObject= new BasePrice(generateDemoBidderOfferData(),generateDemoBidderScoreData(),zbfPath,
                 "I1300000001000117001001","636856699991660264");*/
 
         //BasePrice priceObject= new BasePrice(zbfPath,"I1300000001000117001001","636903324990146947");
-        BasePrice priceObject= new BasePrice(zbfPath,"I1301000075016897001001","636957027332274890");
+        BasePrice priceObject= new BasePrice(zbfPath,"I1301000075016734001001","636980214363399775");
         System.out.printf("基准价采用的报价条目=%s%n",priceObject.getPriceItem());
 
 
-        BigDecimal basePrice = priceObject.getReasonableAverageBasePrice(generateDemoBidderOfferData(), new BigDecimal(0.8),new BigDecimal(0.9),2);
-        //BigDecimal basePrice = priceObject.getBasePrice(generateDemoBidderOfferData(),generateDemoBidderScoreData(),3);
+        //BigDecimal basePrice = priceObject.getReasonableAverageBasePrice(generateDemoBidderOfferData(), new BigDecimal(0.8),new BigDecimal(0.9),2);
+        BigDecimal basePrice = priceObject.getBasePrice(generateDemoBidderOfferData(),generateDemoBidderScoreData(),3);
 
         System.out.printf("最终计算基准价=%s%n",basePrice );
 

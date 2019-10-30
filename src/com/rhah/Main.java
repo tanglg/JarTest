@@ -69,26 +69,21 @@ public class Main {
         return bidderList;
     }
     public static void testComputeBasePrice() throws ScriptException {
-        String zbfPath = "C:\\Users\\tanglg\\Desktop\\zfcg-gkzb-cs\\zfcg-gkzb-cs.zbf";
+        String zbfPath = "C:\\Users\\tanglg\\Desktop\\新乐\\新乐.zbf";
         //String zbfPath = "C:\\Users\\tanglg\\Desktop\\123\\123.zbf";
         /*BasePrice priceObject= new BasePrice(generateDemoBidderOfferData(),generateDemoBidderScoreData(),zbfPath,
                 "I1300000001000117001001","636856699991660264");*/
 
         //BasePrice priceObject= new BasePrice(zbfPath,"I1300000001000117001001","636903324990146947");
-        BasePrice priceObject= new BasePrice(zbfPath,"I1301000075016734001001","636980214363399775");
+        BasePrice priceObject= new BasePrice(zbfPath,"I1301000075016897001001","637080418606114040");
+        BigDecimal price = priceObject.getBasePrice(generateDemoBidderOfferData(),null,2);
         System.out.printf("基准价采用的报价条目=%s%n",priceObject.getPriceItem());
-
-
-        //BigDecimal basePrice = priceObject.getReasonableAverageBasePrice(generateDemoBidderOfferData(), new BigDecimal(0.8),new BigDecimal(0.9),2);
-        BigDecimal basePrice = priceObject.getBasePrice(generateDemoBidderOfferData(),generateDemoBidderScoreData(),3);
-
-        System.out.printf("最终计算基准价=%s%n",basePrice );
 
         /*
         OfferScore score = new OfferScore(zbfPath,"636903325136710124",2);
         System.out.printf("报价分采用的基准价节点：%s%n",score.GetRelateBasePrice());
         System.out.printf("报价分采用的开标一览表项是：%s%n",score.GetCustomItem());
-        LinkedHashMap offerScore = score.getBidderOfferScore(generateDemoBidderOfferData(),basePrice);
+        LinkedHashMap offerScore = score.getBidderOfferScore(generateDemoBidderOfferData(),price);
         for (Object bidder : offerScore.keySet()
                 ) {
             System.out.printf("%s=%s%n", bidder, offerScore.get(bidder));

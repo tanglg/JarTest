@@ -144,7 +144,7 @@ public class OfferScore{
      * @return 计算后的数值
      * @throws ScriptException
      */
-    private BigDecimal evalExpression(String expression ) throws ScriptException {
+    public static BigDecimal evalExpression(String expression ) throws ScriptException {
         ScriptEngineManager mgr = new ScriptEngineManager();
         ScriptEngine engine = mgr.getEngineByName("JavaScript");
         return new BigDecimal(engine.eval(expression).toString());

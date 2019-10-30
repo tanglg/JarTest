@@ -1,7 +1,6 @@
 package com.rhah;
 
 import javax.script.ScriptException;
-import java.io.File;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.sql.Connection;
@@ -112,6 +111,14 @@ public class BasePrice {
         else if(basePriceComputeType.equals("RandomAverage")){
             basePrice = computeRandomAveragePrice(getOriginalSortedOffer(biddersPrice));
         }
+        else if(basePriceComputeType.equals("TopLimitAndAverage")){
+            try {
+                basePrice = computeTopLimitAndAverage(getOriginalSortedOffer(biddersPrice), scale);
+                System.out.printf("基准价（限价和平均价）=%s%n", basePrice);
+            }catch  (ScriptException ex) {
+                System.out.printf("计算基准价时，出现异常=%s%n", ex.getStackTrace());
+            }
+        }
         else{
             throw new RuntimeException("不支持根据 "+basePriceComputeType+" 方式计算基准价");
         }
@@ -185,6 +192,27 @@ public class BasePrice {
        }
        return list;
     }
+    private BigDecimal computeTopLimitAndAverage(List<BigDecimal> prices,Integer scale) throws ScriptException {
+        RemoveBidderResult removeBidderResult = getRemvoeBidderCount(_zbfFullPath,prices.size());
+        BigDecimal average = computeAverageBasePrice(prices,removeBidderResult,scale);
+        System.out.printf("投标人数=%s 去最高数=%s  去最低数=%s   平均值=%s%n",prices.size(),removeBidderResult.RemoveHeightCount,removeBidderResult.RemoveLowCount,average);
+        BigDecimal limitPrice;
+        try{
+            limitPrice = new BigDecimal(OfferScore.getSingleValueFromSqlite(_zbfFullPath,"select Backup1 from Overview WHERE Backup2='"+_subItemCode+"'"));
+        }catch (Exception ex)  {
+            throw new RuntimeException("根据标段（"+_subItemCode+"）获取限价时异常，请确认标段编码是否正确\r\n"+ex.getMessage() ,ex );
+        }
+        System.out.printf("最高限价=%s%n",limitPrice);
+        String fomular = OfferScore.getSingleValueFromSqlite(_zbfFullPath,"SELECT Formula FROM BasePriceComputeMethod WHERE RelationKey=='"+_basePriceNodeKey+"'");
+        System.out.printf("计算公式=%s%n",fomular);
+        fomular = fomular.replace("最高限价",limitPrice.toString());
+        fomular = fomular.replace("报价平均值",average.toString());
+        System.out.printf("计算公式=%s%n",fomular);
+        BigDecimal limit = OfferScore.evalExpression(fomular).setScale(scale);
+
+        return limit.add(average);
+    }
+
     /**
      * 根据投标单位之前步骤累计得分的前N名计算基准价
      * @param zbfPath 招标文件全路径

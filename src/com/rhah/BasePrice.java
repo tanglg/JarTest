@@ -208,9 +208,9 @@ public class BasePrice {
         fomular = fomular.replace("最高限价",limitPrice.toString());
         fomular = fomular.replace("报价平均值",average.toString());
         System.out.printf("计算公式=%s%n",fomular);
-        BigDecimal limit = OfferScore.evalExpression(fomular).setScale(scale, RoundingMode.HALF_UP);
+        BigDecimal result = OfferScore.evalExpression(fomular).setScale(scale, RoundingMode.HALF_UP);
 
-        return limit.add(average);
+        return result;
     }
 
     /**

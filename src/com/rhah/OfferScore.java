@@ -17,6 +17,7 @@ import java.util.*;
 public class OfferScore{
 
     private String _zbfFullPath;
+    private String _subItemCode;
     private String _offerScoreNodeKey;
     LinkedHashMap<String,BigDecimal> _bidders;
     Integer _scale;
@@ -50,11 +51,13 @@ public class OfferScore{
      * @param offerScoreNodeKey 当前要计算的报价得分节点的编码，SQLite库EvaluationFlow表NodeKey列的值
      * @param scale 报价分计算结果保留小数位
      */
-    public OfferScore(String zbfFullPath,String offerScoreNodeKey,Integer scale) throws ScriptException {
+    public OfferScore(String zbfFullPath,String offerScoreNodeKey,Integer scale,String subItemCode) throws ScriptException {
         if(!new File(zbfFullPath).exists()) throw new RuntimeException("指定的招标文件不存在");
         _zbfFullPath = zbfFullPath;
         _offerScoreNodeKey = offerScoreNodeKey;
         _scale = scale;
+        _subItemCode = subItemCode;
+
     }
 
     /**
@@ -71,7 +74,13 @@ public class OfferScore{
      */
     public String GetCustomItem()
     {
-        return OfferScore.getSingleValueFromSqlite(_zbfFullPath, "SELECT Backup1 FROM BasePriceComputeMethod WHERE RelationKey=(SELECT Backup1 FROM OfferScoreComputeMethod WHERE RelationKey="+_offerScoreNodeKey+")" );
+        String signupType = OfferScore.getSingleValueFromSqlite(_zbfFullPath, "SELECT count(*)  FROM Parameters where ParameterName='SignupType' AND ParameterValue='1'");
+        if(signupType.equals("1")){
+            return OfferScore.getSingleValueFromSqlite(_zbfFullPath, "SELECT NodeKey FROM CustomItem WHERE Backup2=='"+_subItemCode+"' AND Backup4=0");
+        }else {
+            return OfferScore.getSingleValueFromSqlite(_zbfFullPath, "SELECT Backup1 FROM BasePriceComputeMethod WHERE RelationKey=(SELECT Backup1 FROM OfferScoreComputeMethod WHERE RelationKey="+_offerScoreNodeKey+")" );
+        }
+
     }
     /***
      * 计算报价得分

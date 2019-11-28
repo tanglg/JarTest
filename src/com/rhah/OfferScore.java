@@ -121,8 +121,11 @@ public class OfferScore{
      * @throws ScriptException
      */
     private BigDecimal computeBidderScore(String formula, BigDecimal offer,BigDecimal maxScore,BigDecimal minScore) throws ScriptException {
-        formula = formula.replace("BaoJia",offer.toString()) ;
-        formula = formula.replace("JiZhunJia",basePrice.toString()) ;
+        formula = formula.replace("BaoJia".toUpperCase(),offer.toString()) ;
+        formula = formula.replace("JiZhunJia".toUpperCase(),basePrice.toString()) ;
+        //注意：严格来说，标准分采用maxScore来替换不合适，因为最高分有可能高于标准分，但招标工具端设置了标准分=最高分，所以
+        //采用这个替换没有问题，如果工具端调整，此处应同步调整
+        formula = formula.replace("biaozhunfen".toUpperCase(),maxScore.toString()) ;
         //计算实际得分
         BigDecimal actualScore = evalExpression(formula);
         //判断是否超上、下限

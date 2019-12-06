@@ -127,7 +127,7 @@ public class OfferScore{
         //采用这个替换没有问题，如果工具端调整，此处应同步调整
         formula = formula.toUpperCase().replace("biaozhunfen".toUpperCase(),maxScore.toString()) ;
         //计算实际得分
-        BigDecimal actualScore = evalExpression(formula);
+        BigDecimal actualScore = evalExpression(formula.toLowerCase());
         //判断是否超上、下限
         if(actualScore.compareTo(maxScore)==1) {
             return maxScore;

@@ -173,24 +173,24 @@ public class BasePrice {
      * @return 升序排列的投标报价
      */
     private List<BigDecimal> extractAscSortedOfferByScore(LinkedHashMap<String,BigDecimal> offers,LinkedHashMap<String,BigDecimal> scores){
-       ArrayList<SimpleBidder> simpleBidders = new ArrayList<SimpleBidder>(offers.size());
-       Iterator item  = offers.entrySet().iterator();
-       while (item.hasNext()) {
-           Map.Entry<String, BigDecimal> entry =  (Map.Entry<String, BigDecimal>)item.next();
-           SimpleBidder bidder = new SimpleBidder();
-           bidder.bidderKey = entry.getKey();
-           bidder.offer = entry.getValue();
-           bidder.score = scores.get(entry.getKey());
-           simpleBidders.add(bidder);
-       }
-       simpleBidders.sort(new SortByScore());
-       ArrayList<BigDecimal> list = new ArrayList<>(offers.size());
-       System.out.printf("根据累计得分升序排序后：%n");
-       for (SimpleBidder sbidder : simpleBidders ) {
-           list.add(sbidder.offer);
-           System.out.printf("投标人=%s 分数=%s  报价=%s%n",sbidder.bidderKey,sbidder.score.toString(),sbidder.offer.toString());
-       }
-       return list;
+        ArrayList<SimpleBidder> simpleBidders = new ArrayList<SimpleBidder>(offers.size());
+        Iterator item  = offers.entrySet().iterator();
+        while (item.hasNext()) {
+            Map.Entry<String, BigDecimal> entry =  (Map.Entry<String, BigDecimal>)item.next();
+            SimpleBidder bidder = new SimpleBidder();
+            bidder.bidderKey = entry.getKey();
+            bidder.offer = entry.getValue();
+            bidder.score = scores.get(entry.getKey());
+            simpleBidders.add(bidder);
+        }
+        simpleBidders.sort(new SortByScore());
+        ArrayList<BigDecimal> list = new ArrayList<>(offers.size());
+        System.out.printf("根据累计得分升序排序后：%n");
+        for (SimpleBidder sbidder : simpleBidders ) {
+            list.add(sbidder.offer);
+            System.out.printf("投标人=%s 分数=%s  报价=%s%n",sbidder.bidderKey,sbidder.score.toString(),sbidder.offer.toString());
+        }
+        return list;
     }
     private BigDecimal computeTopLimitAndAverage(List<BigDecimal> prices,Integer scale) throws ScriptException {
         RemoveBidderResult removeBidderResult = getRemvoeBidderCount(_zbfFullPath,prices.size());
@@ -352,7 +352,7 @@ public class BasePrice {
             Class.forName("org.sqlite.JDBC");
             Connection conn = DriverManager.getConnection(String.format("jdbc:sqlite:%s", dbPath));
             Statement stat = conn.createStatement();
-            ResultSet rs = stat.executeQuery("SELECT ThresholdValue,HeightCount,LowCount,DownFactor from AverageBasePriceMethod WHERE ThresholdValue>0 ORDER BY SortOrder");
+            ResultSet rs = stat.executeQuery("SELECT ThresholdValue,HeightCount,LowCount,DownFactor,Backup1 from AverageBasePriceMethod WHERE ThresholdValue>0 ORDER BY SortOrder");
             List<RemoveBidderParam> params  = new ArrayList<RemoveBidderParam>();
             while( rs.next()) {
                 RemoveBidderParam param = new RemoveBidderParam();
@@ -360,6 +360,10 @@ public class BasePrice {
                 param.HeightCount = rs.getInt("HeightCount");
                 param.LowCount = rs.getInt("LowCount");
                 param.Factor = new BigDecimal(rs.getString("DownFactor"));
+                param.RemoveType = rs.getString("Backup1");
+                if (param.RemoveType==null){
+                    param.RemoveType = "数值";
+                }
                 params.add(param);
             }
             rs.close();
@@ -378,6 +382,7 @@ public class BasePrice {
      */
     private RemoveBidderResult getRemvoeBidderCount(String dbpath,int bidderCount)
     {
+        System.out.printf("参与计算基准价总数：%s%n",bidderCount);
         List<RemoveBidderParam> params = getRemoveBidderParam(dbpath);
         int positon = -1;
         for(int i=0;i<params.size();i++){
@@ -390,9 +395,23 @@ public class BasePrice {
             param.RemoveHeightCount=0;
             param.RemoveLowCount =0;
             param.Factor=BigDecimal.valueOf(100);
-            } else {
-            param.RemoveHeightCount=params.get(positon).HeightCount;
-            param.RemoveLowCount =params.get(positon).LowCount;
+        } else {
+            if(params.get(positon).RemoveType.equals("数值")){
+                param.RemoveHeightCount=params.get(positon).HeightCount;
+                param.RemoveLowCount =params.get(positon).LowCount;
+                System.out.printf("计算基准价去掉最高个数：%s%n",param.RemoveHeightCount);
+                System.out.printf("计算基准价去掉最低个数：%s%n",param.RemoveLowCount);
+            } else if(params.get(positon).RemoveType.equals("百分比四舍五入")){
+                param.RemoveHeightCount= Math.round( params.get(positon).HeightCount * bidderCount / 100f);
+                param.RemoveLowCount = Math.round( params.get(positon).LowCount * bidderCount / 100f);
+                System.out.printf("去掉最高个数：%s%%，%s = %s%n",params.get(positon).HeightCount,params.get(positon).RemoveType,param.RemoveHeightCount);
+                System.out.printf("去掉最低个数：%s%%，%s = %s%n",params.get(positon).LowCount,params.get(positon).RemoveType,param.RemoveLowCount);
+            } else{
+                param.RemoveHeightCount=(int)Math.floor(params.get(positon).HeightCount* bidderCount / 100f);
+                param.RemoveLowCount =(int)Math.floor(params.get(positon).LowCount* bidderCount / 100f);
+                System.out.printf("去掉最高个数：%s%%，%s = %s%n",params.get(positon).HeightCount,params.get(positon).RemoveType,param.RemoveHeightCount);
+                System.out.printf("去掉最低个数：%s%%，%s = %s%n",params.get(positon).LowCount,params.get(positon).RemoveType,param.RemoveLowCount);
+            }
             param.Factor =params.get(positon).Factor;
         }
         BigDecimal factor = GetFactor(dbpath);
@@ -400,6 +419,8 @@ public class BasePrice {
             //如果设置了整体的浮动比例，则覆盖分项的浮动比例
             param.Factor= factor.subtract(BigDecimal.valueOf(1000));
         }
+
+
         return param;
     }
     private BigDecimal GetFactor(String dbpath)

@@ -103,7 +103,7 @@ public class OfferScore{
         LinkedHashMap<String,BigDecimal> scoreMap = new LinkedHashMap<>();
 
         for (String bidderID:bidders.keySet()
-             ) {
+        ) {
             scoreMap.put(bidderID,computeBidderScore(formula,bidders.get(bidderID),maxScore,minScore).setScale(scale, RoundingMode.HALF_UP));
 
         }
@@ -139,8 +139,6 @@ public class OfferScore{
             return actualScore;
         }
     }
-
-
     /**
      * 获取报价得分的计算公式
      * @param zbfFullPath 招标文件全路径（zbf文件的绝对路径）
@@ -148,7 +146,7 @@ public class OfferScore{
      */
     private String getOfferScoreFormula(String zbfFullPath,String offerScoreNodeKey){
         return getSingleValueFromSqlite(zbfFullPath,"select Formula ||'@'||LowestScoreWhenIncrease||'@'||LowestScoreWhenReduce AS Parameter"+
-                                                        " from OfferScoreComputeMethod where RelationKey="+offerScoreNodeKey);
+                " from OfferScoreComputeMethod where RelationKey="+offerScoreNodeKey);
     }
     /***
      * 计算数学表达式的值
@@ -221,4 +219,8 @@ class  RemoveBidderParam{
      * 投标人数量达到阈值时的浮动比例，例如：值=98，则实际计算时应对基准价*0.98
      */
     public BigDecimal Factor;
+    /**
+     * 删除最高最低报价的模式，数值、百分比四舍五入、百分比取整
+     */
+    public String RemoveType;
 }

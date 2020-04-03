@@ -317,6 +317,9 @@ public class BasePrice {
             System.out.printf("参与平均的值"+(i+1-method.RemoveLowCount)+"=%s%n",offerList.get(i));
         }
         price = price.divide(BigDecimal.valueOf(offerList.size()-method.RemoveHeightCount-method.RemoveLowCount),scale, RoundingMode.HALF_UP);
+        if(!method.Factor.equals(new BigDecimal(100))){
+            System.out.printf("基准价将在 %s的基础上下浮%s%%%n",price,new BigDecimal(100).subtract(method.Factor));
+        }
         return price.multiply(method.Factor).divide(BigDecimal.valueOf(100),scale, RoundingMode.HALF_UP);
     }
     private BigDecimal computeTopNBasePrice(List<BigDecimal> bidders,String dbPath,Integer scale) {
